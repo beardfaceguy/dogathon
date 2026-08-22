@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: shelterlint-dogathon
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm ci --include=dev
+    startCommand: INTAKE_DEMO_HOST=0.0.0.0 INTAKE_DEMO_PORT=$PORT npm run demo:intake
+    healthCheckPath: /intake
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

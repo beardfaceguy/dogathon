@@ -6,9 +6,24 @@ import {
   normalizeIntake,
   toRawFreeProjection,
   type IntakeDraft,
+  type NormalizedIntakeRecord,
 } from "./normalize.js";
 
 const MAX_INTAKE_BYTES = 100_000;
+
+export const INTAKE_CORE_FIELDS = [
+  { id: "animalId", label: "Animal ID" },
+  { id: "intakeDate", label: "Intake date" },
+  { id: "intakeType", label: "Intake type" },
+  { id: "intakeReasonText", label: "Intake reason" },
+  { id: "species", label: "Species" },
+  { id: "ageGroup", label: "Age group" },
+  { id: "sex", label: "Sex" },
+  { id: "alteredStatus", label: "Altered status" },
+] as const satisfies ReadonlyArray<{
+  id: keyof NormalizedIntakeRecord;
+  label: string;
+}>;
 
 const EXAMPLE_FILES = [
   {
@@ -114,6 +129,7 @@ export const intakeApi = new Hono()
     c.header("Cache-Control", "no-store");
     return c.json({
       examples: EXAMPLES,
+      coreFields: INTAKE_CORE_FIELDS,
     });
   })
   .post("/normalize", async (c) => {

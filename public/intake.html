@@ -172,7 +172,7 @@
       padding: 16px;
       border-bottom: 1px solid var(--line);
     }
-    .result-block:nth-child(odd) { border-right: 1px solid var(--line); }
+    .result-block.left-column { border-right: 1px solid var(--line); }
     .result-block h3 {
       margin: 0 0 12px;
       color: var(--muted);
@@ -180,6 +180,44 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
+    .comparison {
+      grid-column: 1 / -1;
+      border-right: 0 !important;
+    }
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    tbody th {
+      color: var(--text);
+      font-size: 13px;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+    td[data-column="intake"],
+    td[data-column="normalized"] {
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    td[data-column="outcome"] { font-weight: 700; }
+    tr.changed td[data-column="outcome"] { color: var(--green); }
+    tr.review td[data-column="outcome"] { color: var(--amber); }
+    tr.error td[data-column="outcome"] { color: var(--red); }
+    tr.missing td[data-column="outcome"] { color: var(--muted); }
     dl {
       display: grid;
       grid-template-columns: minmax(110px, 0.6fr) 1fr;
@@ -222,7 +260,8 @@
     @media (max-width: 620px) {
       .status { margin-left: 0; width: 100%; }
       .results { grid-template-columns: 1fr; }
-      .result-block:nth-child(odd) { border-right: 0; }
+      .result-block.left-column { border-right: 0; }
+      table { min-width: 680px; }
     }
   </style>
 </head>
@@ -250,7 +289,7 @@
         <select id="example"></select>
       </label>
       <button type="button" id="reload">Reload example</button>
-      <button type="button" class="primary" id="normalize">Normalize intake</button>
+      <button type="button" class="primary" id="normalize" disabled>Normalize intake</button>
       <div class="status" id="status" role="status">Loading examples…</div>
     </div>
 
@@ -273,7 +312,24 @@
       <section class="panel" id="result-panel" aria-busy="false">
         <h2>Raw-free normalization result</h2>
         <div class="results">
-          <section class="result-block">
+          <section class="result-block comparison">
+            <h3>Intake versus normalized</h3>
+            <div class="empty" id="comparison-empty">Run normalization to compare fields.</div>
+            <div class="table-wrap">
+              <table aria-label="Intake and normalized field comparison">
+                <thead>
+                  <tr>
+                    <th scope="col">Field</th>
+                    <th scope="col">Intake value</th>
+                    <th scope="col">Normalized value</th>
+                    <th scope="col">Outcome</th>
+                  </tr>
+                </thead>
+                <tbody id="comparison"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="result-block left-column">
             <h3>Normalized record</h3>
             <div class="empty" id="record-empty">Run normalization to see fields.</div>
             <dl id="record"></dl>
@@ -282,7 +338,7 @@
             <h3>Applied rules</h3>
             <ul id="changes"><li class="empty">No rules applied yet.</li></ul>
           </section>
-          <section class="result-block">
+          <section class="result-block left-column">
             <h3>Review warnings</h3>
             <ul id="warnings"><li class="empty">No warnings yet.</li></ul>
           </section>
@@ -304,8 +360,11 @@
     const resultPanel = document.querySelector("#result-panel");
     const sourceError = document.querySelector("#source-error");
     const recordEmpty = document.querySelector("#record-empty");
+    const comparisonEmpty = document.querySelector("#comparison-empty");
     const examples = new Map();
+    let coreFields = [];
     let activeController = null;
+    let metadataReady = false;
     let sourceVersion = 0;
 
     function setStatus(text, state = "") {
@@ -332,6 +391,9 @@
       document.querySelector("#record").replaceChildren();
       recordEmpty.textContent = message;
       recordEmpty.hidden = false;
+      document.querySelector("#comparison").replaceChildren();
+      comparisonEmpty.textContent = "Run normalization to compare fields.";
+      comparisonEmpty.hidden = false;
       emptyList(document.querySelector("#changes"), "No deterministic changes displayed.");
       emptyList(document.querySelector("#warnings"), "No review warnings displayed.");
       emptyList(document.querySelector("#errors"), "No profile validation results displayed.");
@@ -342,11 +404,77 @@
       sourceVersion += 1;
       activeController?.abort();
       activeController = null;
-      normalizeButton.disabled = false;
+      normalizeButton.disabled = !metadataReady;
       resultPanel.setAttribute("aria-busy", "false");
       setInputError();
       clearResults("Result cleared because the source changed.");
       setStatus(message);
+    }
+
+    function displayValue(value, present) {
+      if (!present) return "—";
+      const serialized = JSON.stringify(value);
+      return serialized === undefined ? String(value) : serialized;
+    }
+
+    function renderComparison(intake, result) {
+      const target = document.querySelector("#comparison");
+      target.replaceChildren();
+      comparisonEmpty.hidden = true;
+      const changed = new Set(result.changes.map((change) => change.field));
+      const warnings = new Set(result.warnings.map((issue) => issue.field));
+      const errors = new Set(result.errors.map((issue) => issue.field));
+
+      for (const [field, label] of coreFields) {
+        const intakePresent = Object.prototype.hasOwnProperty.call(intake, field);
+        const normalizedPresent = Object.prototype.hasOwnProperty.call(
+          result.normalizedRecord,
+          field,
+        );
+        let outcome = "Missing";
+        let outcomeClass = "missing";
+        if (errors.has(field)) {
+          outcome = "Validation error";
+          outcomeClass = "error";
+        } else if (warnings.has(field)) {
+          outcome = "Review required";
+          outcomeClass = "review";
+        } else if (changed.has(field) || (!intakePresent && normalizedPresent)) {
+          outcome = "Changed";
+          outcomeClass = "changed";
+        } else if (intakePresent && normalizedPresent) {
+          outcome = "Unchanged";
+          outcomeClass = "unchanged";
+        } else if (intakePresent) {
+          outcome = "Not normalized";
+          outcomeClass = "review";
+        }
+
+        const row = document.createElement("tr");
+        row.dataset.field = field;
+        row.className = outcomeClass;
+        const fieldCell = document.createElement("th");
+        fieldCell.scope = "row";
+        fieldCell.dataset.label = "Field";
+        fieldCell.textContent = label;
+        const intakeCell = document.createElement("td");
+        intakeCell.dataset.column = "intake";
+        intakeCell.dataset.label = "Intake value";
+        intakeCell.textContent = displayValue(intake[field], intakePresent);
+        const normalizedCell = document.createElement("td");
+        normalizedCell.dataset.column = "normalized";
+        normalizedCell.dataset.label = "Normalized value";
+        normalizedCell.textContent = displayValue(
+          result.normalizedRecord[field],
+          normalizedPresent,
+        );
+        const outcomeCell = document.createElement("td");
+        outcomeCell.dataset.column = "outcome";
+        outcomeCell.dataset.label = "Outcome";
+        outcomeCell.textContent = outcome;
+        row.append(fieldCell, intakeCell, normalizedCell, outcomeCell);
+        target.append(row);
+      }
     }
 
     function renderRecord(record) {
@@ -397,7 +525,8 @@
       }
     }
 
-    function renderResult(result) {
+    function renderResult(intake, result) {
+      renderComparison(intake, result);
       renderRecord(result.normalizedRecord);
       renderChanges(result.changes);
       renderIssues("#warnings", result.warnings, "No human review warnings.");
@@ -435,6 +564,10 @@
     source.addEventListener("input", () => invalidateResults());
 
     normalizeButton.addEventListener("click", async () => {
+      if (!metadataReady) {
+        setStatus("Comparison metadata is not available.", "error");
+        return;
+      }
       activeController?.abort();
       const controller = new AbortController();
       activeController = controller;
@@ -452,8 +585,9 @@
       clearResults("Normalization in progress…");
       setStatus("Normalizing…");
       try {
+        let submittedDraft;
         try {
-          JSON.parse(submittedSource);
+          submittedDraft = JSON.parse(submittedSource);
         } catch {
           setInputError("Source must be valid JSON.");
           throw new Error("Fix the source JSON and try again.");
@@ -467,7 +601,7 @@
         const body = await response.json();
         if (requestVersion !== sourceVersion || source.value !== submittedSource) return;
         if (!response.ok || !body.ok) throw new Error(body.error ?? "Normalization failed.");
-        renderResult(body.result);
+        renderResult(submittedDraft, body.result);
       } catch (error) {
         if (requestVersion !== sourceVersion) return;
         clearResults("No current result.");
@@ -483,7 +617,7 @@
         clearTimeout(timeout);
         if (requestVersion === sourceVersion) {
           activeController = null;
-          normalizeButton.disabled = false;
+          normalizeButton.disabled = !metadataReady;
           resultPanel.setAttribute("aria-busy", "false");
         }
       }
@@ -494,7 +628,17 @@
         if (!response.ok) throw new Error("Could not load examples.");
         return response.json();
       })
-      .then(({ examples: loadedExamples }) => {
+      .then(({ examples: loadedExamples, coreFields: loadedCoreFields }) => {
+        if (
+          !Array.isArray(loadedExamples)
+          || !Array.isArray(loadedCoreFields)
+          || loadedCoreFields.length === 0
+        ) {
+          throw new Error("Could not load examples.");
+        }
+        coreFields = loadedCoreFields.map(({ id, label }) => [id, label]);
+        metadataReady = true;
+        normalizeButton.disabled = false;
         for (const example of loadedExamples) {
           examples.set(example.id, example.draft);
           const option = document.createElement("option");
@@ -505,7 +649,11 @@
         exampleSelect.value = "stray";
         loadSelectedExample();
       })
-      .catch((error) => setStatus(error.message, "error"));
+      .catch((error) => {
+        metadataReady = false;
+        normalizeButton.disabled = true;
+        setStatus(error.message, "error");
+      });
   </script>
 </body>
 </html>
