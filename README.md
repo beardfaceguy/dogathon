@@ -1,4 +1,42 @@
-# Dog-a-thon starter
+# ShelterLint
+
+> A deterministic quality gate for cleaner animal intake data.
+
+**[Live Demo](https://shelterlint-dogathon.onrender.com/intake)**
+
+ShelterLint is a dog-first, extensible smart layer for animal shelter intake.
+It cleans inconsistent data with deterministic, auditable rules before any AI
+is involved. The browser demo places exact intake values beside normalized
+values, explains every transformation, and routes ambiguity to human review
+instead of guessing.
+
+ShelterLint is designed to complement systems such as PetPoint—not replace
+them. The initial boundary follows Shelter Animals Count terminology where
+represented and preserves unrestricted source data inside a sensitive internal
+envelope while exposing a restricted raw-free projection to routine consumers.
+
+## Demo highlights
+
+- Four synthetic scenarios based on public municipal, emergency, and surrender forms
+- Side-by-side intake and normalized values for the eight approved core fields
+- Changed, unchanged, missing, validation-error, and review-required outcomes
+- Rule-level audit trail and versioned normalization provenance
+- Credential-free local and hosted demos with no model or PetPoint dependency
+
+```text
+intake JSON → deterministic rules → raw-free comparison → human review
+```
+
+## Development quality
+
+- 51 deterministic Node unit and regression tests
+- 10 Playwright Chromium tests covering rendering, retries, stale requests, timeouts, and XSS safety
+- Biome linting and strict TypeScript checks
+- Pre-commit and protected GitHub CI gates
+- A custom formal agent-to-agent review protocol with stable blocker IDs,
+  verified revision rounds, and committed logs under `agent_review/`
+
+## Arcade starter foundation (optional)
 
 An **ambient agent**: nobody prompts it. A dog rescue's adoption form emails an
 intake mailbox, a local server notices, and an agent handles the application end

@@ -15,8 +15,8 @@ test("intake demo page is wired to the raw-free API", () => {
 
   assert.match(page, /id="source"/);
   assert.match(page, /id="normalize"/);
-  assert.match(page, /fetch\("\/api\/intake\/examples"\)/);
-  assert.match(page, /fetch\("\/api\/intake\/normalize"/);
+  assert.match(page, /fetchWithRetry\("\/api\/intake\/examples"\)/);
+  assert.match(page, /fetchWithRetry\("\/api\/intake\/normalize"/);
   assert.match(page, /new AbortController\(\)/);
   assert.match(page, /id="comparison"/);
   assert.match(page, /id="normalize" disabled/);
