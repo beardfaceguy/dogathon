@@ -47,3 +47,17 @@ test("rejects invalid calendar dates", () => {
     ],
   );
 });
+
+test("rejects timestamps outside RFC 3339 clock ranges", () => {
+  for (const intakeDate of [
+    "2026-08-22T24:00Z",
+    "2026-08-22T12:60Z",
+    "2026-08-22T12:30:60Z",
+    "2026-08-22T12:30+24:00",
+  ]) {
+    const result = normalizeIntake({ intakeDate });
+    assert.equal(result.normalizedRecord.intakeDate, undefined);
+    assert.equal(result.warnings[0].code, "invalid_date");
+    assert.equal(result.needsReview, true);
+  }
+});

@@ -118,6 +118,22 @@ above a shelter system of record. Its versioned JSON contracts live in
 `schemas/`; source forms, synthetic inputs, and golden outputs live in
 `test-data/`.
 
+Run the credential-free browser demo:
+
+```bash
+npm run demo:intake
+```
+
+Open **http://localhost:4112/intake**, select a synthetic intake, and compare
+the source JSON with normalized fields, applied rules, and human-review
+warnings. The standalone demo does not load Arcade, Google, Slack, Anthropic,
+or PetPoint credentials. The same page is also available at
+**http://localhost:4111/intake** when the full starter server is configured.
+Both servers default to `localhost`; use `INTAKE_DEMO_HOST` /
+`INTAKE_DEMO_PORT` for the standalone demo and `HOST` / `PORT` for the full
+starter. Binding externally exposes an unauthenticated prototype and should
+only be done on a trusted network.
+
 ```bash
 npm test
 npm run check
@@ -134,6 +150,10 @@ inside `test`, `tests`, or `__tests__` directories. GitHub Actions runs the same
 gate, and `main` requires that check through branch protection. Downloaded
 reference forms are intentionally excluded from linting; their JSON-derived
 behavior is covered by schema and fixture tests.
+
+Browser regressions use Playwright Chromium and are part of `npm test`. Install
+the local browser once with `npx playwright install chromium`; CI installs it
+before running the same quality gate.
 
 Unrecognized or ambiguous values are preserved in `rawRecord` and produce
 review warnings. Because the result carries that unrestricted source record,

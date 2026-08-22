@@ -11,6 +11,7 @@ _Updated: 2026-08-22_
 
 - Vocabulary: `CONTEXT.md`
 - Deterministic core: `src/intake/normalize.ts`
+- Credential-free demo: `src/intake/demo-server.ts`, `src/intake/api.ts`, `public/intake.html`
 - Field boundary: `docs/research/intake-field-matrix.md`
 - Decision: `docs/adr/2026-08-22-deterministic-intake-core.md`
 - Event problem statement: `Dogathon Opening Ceremony.pdf`

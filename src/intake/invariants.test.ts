@@ -74,3 +74,18 @@ test("invalid safe-text types are preserved and routed to review", () => {
   ]);
   assert.equal(result.needsReview, true);
 });
+
+test("audit issue values are snapshots, not references to input objects", () => {
+  const draft = {
+    species: {
+      reported: "dog-ish",
+    },
+  };
+
+  const result = normalizeIntake(draft);
+  draft.species.reported = "mutated later";
+
+  assert.deepEqual(result.warnings[0].value, {
+    reported: "dog-ish",
+  });
+});
