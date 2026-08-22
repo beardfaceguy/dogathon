@@ -134,7 +134,29 @@ test("normalization API rejects oversized fixed and streamed bodies", async () =
   assert.equal(streamed.status, 413);
   assert.equal(cancelled, true);
 
-  for (const response of [fixed, streamed]) {
+  let declaredCancelled = false;
+  const declaredStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode("{}"));
+    },
+    cancel() {
+      declaredCancelled = true;
+    },
+  });
+  const declaredRequest = new Request("http://localhost/normalize", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "content-length": "100001",
+    },
+    body: declaredStream,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+  const declared = await intakeApi.fetch(declaredRequest);
+  assert.equal(declared.status, 413);
+  assert.equal(declaredCancelled, true);
+
+  for (const response of [fixed, streamed, declared]) {
     assert.deepEqual(await response.json(), {
       ok: false,
       error: "Intake record exceeds the 100 KB demo limit.",

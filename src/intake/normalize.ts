@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 
 export const INTAKE_SCHEMA_VERSION = "0.1.0" as const;
-export const NORMALIZATION_RULESET_VERSION = "0.1.0" as const;
+export const NORMALIZATION_RULESET_VERSION = "0.2.0" as const;
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
@@ -481,7 +481,8 @@ export function normalizeIntake(
       warnings.push({
         field: "intakeDate",
         code: "invalid_date",
-        message: "Intake date must be an ISO date or RFC 3339 timestamp.",
+        message:
+          "Intake date must be an ISO date or supported RFC 3339 timestamp with seconds 00 through 59.",
         value: input,
       });
     }

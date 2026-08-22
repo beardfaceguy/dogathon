@@ -61,6 +61,7 @@ async function limitedBody(
     && /^\d+$/.test(declaredLength)
     && Number(declaredLength) > MAX_INTAKE_BYTES
   ) {
+    await request.body?.cancel();
     return { ok: false };
   }
 
