@@ -8,9 +8,13 @@
     "start": "tsx src/server.ts",
     "reset": "tsx src/reset.ts",
     "evaluate:intake": "tsx src/intake/evaluate.ts",
+    "lint": "biome lint src scripts",
     "normalize:intake": "tsx src/intake/cli.ts",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "check": "npm run lint && npm run typecheck && npm run test:layout && npm test",
+    "test": "tsx scripts/run-tests.ts",
+    "test:layout": "tsx scripts/check-test-layout.ts",
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
@@ -23,9 +27,11 @@
     "hono": "^4.13.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.10",
     "@types/node": "^26.2.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "husky": "^9.1.7",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }

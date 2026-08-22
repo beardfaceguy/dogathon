@@ -120,10 +120,20 @@ above a shelter system of record. Its versioned JSON contracts live in
 
 ```bash
 npm test
+npm run check
 npm run evaluate:intake
 npm run normalize:intake -- test-data/intake-records/stray-intake.json
 cat records.ndjson | npm run normalize:intake -- --ndjson
 ```
+
+`npm install` configures the tracked Husky pre-commit hook. Every commit runs
+Biome linting over maintained TypeScript, the TypeScript compiler, and the full
+deterministic test suite. The test runner discovers every repository-wide
+`*.test.ts` and `*.spec.ts`; a layout guard rejects uncovered TypeScript files
+inside `test`, `tests`, or `__tests__` directories. GitHub Actions runs the same
+gate, and `main` requires that check through branch protection. Downloaded
+reference forms are intentionally excluded from linting; their JSON-derived
+behavior is covered by schema and fixture tests.
 
 Unrecognized or ambiguous values are preserved in `rawRecord` and produce
 review warnings. Because the result carries that unrestricted source record,
