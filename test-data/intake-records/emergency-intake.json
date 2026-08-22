@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "scenario": "Emergency shelter intake with temporary housing",
+    "inspiredBy": "california-oes-animal-intake.pdf",
+    "synthetic": true
+  },
+  "animalId": "TEST-EMERGENCY-001",
+  "intakeDate": "2026-08-22T10:15:00-07:00",
+  "intakeType": "Transfer In",
+  "intakeReasonText": "  Temporary emergency housing  ",
+  "species": "Canine",
+  "ageGroup": "Juvenile",
+  "sex": "F",
+  "alteredStatus": "Unknown",
+  "name": "Pixel",
+  "breed": "Australian Cattle Dog mix",
+  "color": "Blue merle",
+  "source": {
+    "method": "over_the_counter",
+    "organization": "Synthetic Emergency Operations Center",
+    "authorityContact": {
+      "name": "Synthetic Authorized Contact",
+      "phone": "+1-555-0101"
+    }
+  },
+  "identification": {
+    "microchip": {
+      "number": "000000000000000",
+      "company": "Synthetic Registry"
+    }
+  },
+  "medical": {
+    "biteWithinLastTenDays": false,
+    "knownConditions": [],
+    "allergiesOrSpecialDiet": "None reported",
+    "medications": []
+  },
+  "notes": "  Temporary housing; owner retains decision authority.  "
+}

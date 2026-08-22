@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "scenario": "Ambiguous values requiring review",
+    "inspiredBy": "animal-shelter-manager-intake.html",
+    "synthetic": true
+  },
+  "animalId": "  TEST-AMBIGUOUS-001  ",
+  "intakeType": "walk-in",
+  "intakeReasonText": "  family circumstances / maybe stray?  ",
+  "species": "doggo",
+  "ageGroup": "about two-ish",
+  "sex": "boy",
+  "alteredStatus": "maybe",
+  "name": "Mochi",
+  "breed": "lab-ish",
+  "weight": "forty pounds give or take",
+  "medical": {
+    "vaccinationsCurrent": "probably",
+    "medications": ["Bravecto®?"]
+  },
+  "behavior": {
+    "goodWithDogs": "mostly",
+    "biteHistory": "nipped once, date unknown"
+  },
+  "notes": "  Do not silently infer or spell-correct ambiguous fields.  "
+}

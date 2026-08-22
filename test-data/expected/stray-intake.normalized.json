@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "0.1.0",
+  "provenance": {
+    "rulesetVersion": "0.1.0",
+    "profile": null
+  },
+  "normalizedRecord": {
+    "species": "dog",
+    "intakeType": "stray",
+    "ageGroup": "adult",
+    "sex": "male",
+    "alteredStatus": "unaltered",
+    "animalId": "SF-2026-0042",
+    "intakeReasonText": "Found at large",
+    "intakeDate": "2026-08-22T15:35:00.000Z"
+  },
+  "changes": [
+    {
+      "field": "species",
+      "to": "dog",
+      "ruleId": "species.alias.canine"
+    },
+    {
+      "field": "intakeType",
+      "to": "stray",
+      "ruleId": "intake-type.canonical.stray"
+    },
+    {
+      "field": "ageGroup",
+      "to": "adult",
+      "ruleId": "age-group.canonical.adult"
+    },
+    {
+      "field": "sex",
+      "to": "male",
+      "ruleId": "sex.alias.m"
+    },
+    {
+      "field": "alteredStatus",
+      "to": "unaltered",
+      "ruleId": "altered-status.alias.intact"
+    },
+    {
+      "field": "animalId",
+      "to": "SF-2026-0042",
+      "ruleId": "text.trim"
+    },
+    {
+      "field": "intakeReasonText",
+      "to": "Found at large",
+      "ruleId": "text.trim"
+    },
+    {
+      "field": "intakeDate",
+      "to": "2026-08-22T15:35:00.000Z",
+      "ruleId": "date.rfc3339-to-utc"
+    }
+  ],
+  "warnings": [],
+  "errors": [],
+  "needsReview": false
+}

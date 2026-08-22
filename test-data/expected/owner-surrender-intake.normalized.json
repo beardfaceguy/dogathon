@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "0.1.0",
+  "provenance": {
+    "rulesetVersion": "0.1.0",
+    "profile": null
+  },
+  "normalizedRecord": {
+    "species": "dog",
+    "intakeType": "relinquished_by_owner",
+    "ageGroup": "senior",
+    "sex": "female",
+    "alteredStatus": "altered",
+    "animalId": "TEST-SURRENDER-001",
+    "intakeReasonText": "Housing issue",
+    "intakeDate": "2026-08-22"
+  },
+  "changes": [
+    {
+      "field": "intakeType",
+      "to": "relinquished_by_owner",
+      "ruleId": "intake-type.alias.owner-surrender"
+    },
+    {
+      "field": "ageGroup",
+      "to": "senior",
+      "ruleId": "age-group.canonical.senior"
+    },
+    {
+      "field": "sex",
+      "to": "female",
+      "ruleId": "sex.canonical.female"
+    },
+    {
+      "field": "alteredStatus",
+      "to": "altered",
+      "ruleId": "altered-status.alias.spayed"
+    },
+    {
+      "field": "intakeReasonText",
+      "to": "Housing issue",
+      "ruleId": "text.trim"
+    }
+  ],
+  "warnings": [],
+  "errors": [],
+  "needsReview": false
+}

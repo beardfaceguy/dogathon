@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dogathon.local/schemas/normalized-intake-record-0.1.0.json",
+  "title": "Dogathon Normalized Intake Record",
+  "type": "object",
+  "properties": {
+    "animalId": {
+      "type": "string"
+    },
+    "intakeDate": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date"
+        },
+        {
+          "type": "string",
+          "format": "date-time"
+        }
+      ]
+    },
+    "intakeType": {
+      "enum": [
+        "stray",
+        "relinquished_by_owner",
+        "seizure_or_confiscate",
+        "transfer_in",
+        "other"
+      ]
+    },
+    "intakeReasonText": {
+      "type": "string"
+    },
+    "species": {
+      "enum": ["dog", "cat"]
+    },
+    "ageGroup": {
+      "enum": ["neonate", "weaned", "juvenile", "adult", "senior"]
+    },
+    "sex": {
+      "enum": ["male", "female", "unknown"]
+    },
+    "alteredStatus": {
+      "enum": ["altered", "unaltered", "unknown"]
+    }
+  },
+  "additionalProperties": false
+}

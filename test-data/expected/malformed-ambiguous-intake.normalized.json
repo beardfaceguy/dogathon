@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "0.1.0",
+  "provenance": {
+    "rulesetVersion": "0.1.0",
+    "profile": null
+  },
+  "normalizedRecord": {
+    "animalId": "TEST-AMBIGUOUS-001",
+    "intakeReasonText": "family circumstances / maybe stray?"
+  },
+  "changes": [
+    {
+      "field": "animalId",
+      "to": "TEST-AMBIGUOUS-001",
+      "ruleId": "text.trim"
+    },
+    {
+      "field": "intakeReasonText",
+      "to": "family circumstances / maybe stray?",
+      "ruleId": "text.trim"
+    }
+  ],
+  "warnings": [
+    {
+      "field": "species",
+      "code": "unrecognized_value",
+      "message": "Species is not in the supported vocabulary."
+    },
+    {
+      "field": "intakeType",
+      "code": "unrecognized_value",
+      "message": "Intake type is not in the supported vocabulary."
+    },
+    {
+      "field": "ageGroup",
+      "code": "unrecognized_value",
+      "message": "Age group is not in the supported vocabulary."
+    },
+    {
+      "field": "sex",
+      "code": "unrecognized_value",
+      "message": "Sex is not in the supported vocabulary."
+    },
+    {
+      "field": "alteredStatus",
+      "code": "unrecognized_value",
+      "message": "Altered status is not in the supported vocabulary."
+    }
+  ],
+  "errors": [],
+  "needsReview": true
+}

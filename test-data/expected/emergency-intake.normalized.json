@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "0.1.0",
+  "provenance": {
+    "rulesetVersion": "0.1.0",
+    "profile": null
+  },
+  "normalizedRecord": {
+    "species": "dog",
+    "intakeType": "transfer_in",
+    "ageGroup": "juvenile",
+    "sex": "female",
+    "alteredStatus": "unknown",
+    "animalId": "TEST-EMERGENCY-001",
+    "intakeReasonText": "Temporary emergency housing",
+    "intakeDate": "2026-08-22T17:15:00.000Z"
+  },
+  "changes": [
+    {
+      "field": "species",
+      "to": "dog",
+      "ruleId": "species.alias.canine"
+    },
+    {
+      "field": "intakeType",
+      "to": "transfer_in",
+      "ruleId": "intake-type.canonical.transfer-in"
+    },
+    {
+      "field": "ageGroup",
+      "to": "juvenile",
+      "ruleId": "age-group.canonical.juvenile"
+    },
+    {
+      "field": "sex",
+      "to": "female",
+      "ruleId": "sex.alias.f"
+    },
+    {
+      "field": "alteredStatus",
+      "to": "unknown",
+      "ruleId": "altered-status.canonical.unknown"
+    },
+    {
+      "field": "intakeReasonText",
+      "to": "Temporary emergency housing",
+      "ruleId": "text.trim"
+    },
+    {
+      "field": "intakeDate",
+      "to": "2026-08-22T17:15:00.000Z",
+      "ruleId": "date.rfc3339-to-utc"
+    }
+  ],
+  "warnings": [],
+  "errors": [],
+  "needsReview": false
+}

@@ -1,0 +1,28 @@
+{
+  "_meta": {
+    "scenario": "Sparse municipal stray intake",
+    "inspiredBy": "massachusetts-aco-intake.pdf",
+    "synthetic": true
+  },
+  "animalId": "  SF-2026-0042  ",
+  "intakeDate": "2026-08-22T08:35:00-07:00",
+  "intakeType": "Stray",
+  "intakeReasonText": "  Found at large  ",
+  "species": " Canine ",
+  "ageGroup": " Adult ",
+  "sex": "M",
+  "alteredStatus": "intact",
+  "name": null,
+  "breed": "Mixed breed",
+  "color": "Black and white",
+  "foundAt": {
+    "dateTime": "2026-08-22T08:35:00-07:00",
+    "location": "Synthetic Park entrance",
+    "broughtInBy": "animal_control_officer"
+  },
+  "identification": {
+    "microchip": null,
+    "tags": []
+  },
+  "notes": "  No visible injuries; no identification found.  "
+}

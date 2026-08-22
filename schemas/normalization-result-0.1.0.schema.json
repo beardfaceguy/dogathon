@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dogathon.local/schemas/normalization-result-0.1.0.json",
+  "title": "Dogathon Sensitive Normalization Result",
+  "description": "Sensitive internal result envelope containing the unrestricted raw intake record.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "provenance",
+    "rawRecord",
+    "normalizedRecord",
+    "changes",
+    "warnings",
+    "errors",
+    "needsReview"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "provenance": {
+      "$ref": "https://dogathon.local/schemas/normalization-provenance-0.1.0.json"
+    },
+    "rawRecord": {
+      "$ref": "https://dogathon.local/schemas/intake-draft-0.1.0.json"
+    },
+    "normalizedRecord": {
+      "$ref": "https://dogathon.local/schemas/normalized-intake-record-0.1.0.json"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "from", "to", "ruleId"],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "from": {},
+          "to": {},
+          "ruleId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "warnings": {
+      "$ref": "#/definitions/issues"
+    },
+    "errors": {
+      "$ref": "#/definitions/issues"
+    },
+    "needsReview": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "code", "message"],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

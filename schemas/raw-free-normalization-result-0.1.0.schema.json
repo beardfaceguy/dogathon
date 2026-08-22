@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dogathon.local/schemas/raw-free-normalization-result-0.1.0.json",
+  "title": "Dogathon Raw-Free Normalization Result",
+  "description": "Restricted normalization projection without raw or original values. Authorization may still be required.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "provenance",
+    "normalizedRecord",
+    "changes",
+    "warnings",
+    "errors",
+    "needsReview"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "provenance": {
+      "$ref": "https://dogathon.local/schemas/normalization-provenance-0.1.0.json"
+    },
+    "normalizedRecord": {
+      "$ref": "https://dogathon.local/schemas/normalized-intake-record-0.1.0.json"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "to", "ruleId"],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "to": {},
+          "ruleId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "warnings": {
+      "$ref": "#/definitions/issues"
+    },
+    "errors": {
+      "$ref": "#/definitions/issues"
+    },
+    "needsReview": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "code", "message"],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

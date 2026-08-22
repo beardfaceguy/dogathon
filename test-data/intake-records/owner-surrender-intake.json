@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "scenario": "Detailed owner relinquishment",
+    "inspiredBy": "save-a-pet-relinquishment.pdf",
+    "synthetic": true
+  },
+  "animalId": "TEST-SURRENDER-001",
+  "intakeDate": "2026-08-22",
+  "intakeType": " owner surrender ",
+  "intakeReasonText": "  Housing issue  ",
+  "species": "dog",
+  "ageGroup": "Senior",
+  "sex": "Female",
+  "alteredStatus": "spayed",
+  "name": "Juniper",
+  "breed": "Labrador Retriever mix",
+  "weight": {
+    "value": 54,
+    "unit": "lb"
+  },
+  "owner": {
+    "name": "Synthetic Test Owner",
+    "email": "owner@example.test",
+    "phone": "+1-555-0100"
+  },
+  "medical": {
+    "vaccinationsCurrent": true,
+    "conditions": ["arthritis"],
+    "medications": [
+      {
+        "name": "Carprofen",
+        "dosage": "test fixture only",
+        "schedule": "as recorded by veterinarian"
+      }
+    ]
+  },
+  "behavior": {
+    "biteWithinReportingPeriod": false,
+    "goodWithDogs": true,
+    "goodWithCats": "unknown",
+    "goodWithChildren": true,
+    "houseTrained": true
+  },
+  "notes": "  Medication spelling and medical details must not be auto-corrected.  "
+}

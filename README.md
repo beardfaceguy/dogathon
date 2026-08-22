@@ -86,6 +86,7 @@ would pass them.
 | `src/gateway.ts` | The MCP gateway connection and its token store |
 | `src/oauth.ts` | The gateway's OAuth flow, driven by hand — see below |
 | `src/triage.ts` | The agent. A Mastra `Agent` whose tools all come from MCP. |
+| `src/intake/normalize.ts` | Deterministic, versioned shelter-intake normalization core. |
 | `src/applications.ts` | Sample applications, spam, and the form → email composer |
 | `src/dogs.ts` | The roster, and `ORG` — rename the whole thing from one line |
 | `public/apply.html` | The public adoption form |
@@ -109,6 +110,29 @@ non-retryable `IssuerMismatchError`.
 So we run the same flow ourselves with the SDK's own primitives, on our own
 callback route where we *can* read `iss`, and hand the tokens to Mastra's
 provider. Delete that file once Mastra forwards `iss`.
+
+## Intake smart-layer core
+
+`src/intake/normalize.ts` is a stateless deterministic boundary intended to sit
+above a shelter system of record. Its versioned JSON contracts live in
+`schemas/`; source forms, synthetic inputs, and golden outputs live in
+`test-data/`.
+
+```bash
+npm test
+npm run evaluate:intake
+npm run normalize:intake -- test-data/intake-records/stray-intake.json
+cat records.ndjson | npm run normalize:intake -- --ndjson
+```
+
+Unrecognized or ambiguous values are preserved in `rawRecord` and produce
+review warnings. Because the result carries that unrestricted source record,
+the full internal envelope is sensitive. The CLI emits a raw-free restricted
+projection that also removes original change and issue values; it is not
+deidentified or authorization-free. Versioned
+organization profiles may add explicit aliases and required fields, but cannot
+override the global controlled vocabulary; their ID and revision are recorded
+in result provenance.
 
 ## Make it yours
 

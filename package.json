@@ -6,7 +6,11 @@
     "seed": "tsx src/seed.ts",
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "reset": "tsx src/reset.ts"
+    "reset": "tsx src/reset.ts",
+    "evaluate:intake": "tsx src/intake/evaluate.ts",
+    "normalize:intake": "tsx src/intake/cli.ts",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.40",
@@ -20,6 +24,8 @@
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }
