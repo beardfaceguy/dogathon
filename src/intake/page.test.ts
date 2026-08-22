@@ -18,6 +18,17 @@ test("intake demo page is wired to the raw-free API", () => {
   assert.match(page, /fetch\("\/api\/intake\/examples"\)/);
   assert.match(page, /fetch\("\/api\/intake\/normalize"/);
   assert.match(page, /new AbortController\(\)/);
+  assert.match(page, /id="comparison"/);
+  assert.match(page, /id="normalize" disabled/);
+  assert.match(page, /let metadataReady = false/);
+  assert.match(page, /normalizeButton\.disabled = !metadataReady/);
+  assert.match(page, /renderComparison\(intake, result\)/);
+  assert.match(page, /Object\.prototype\.hasOwnProperty\.call\(intake, field\)/);
+  assert.match(page, /document\.createElement\("th"\)/);
+  assert.match(page, /fieldCell\.scope = "row"/);
+  assert.doesNotMatch(page, /thead \{ display: none/);
+  assert.match(page, /result-block left-column/);
+  assert.doesNotMatch(page, /result-block:nth-child/);
   assert.match(page, /source\.addEventListener\("input", \(\) => invalidateResults\(\)\)/);
   assert.match(page, /aria-invalid="false"/);
   assert.match(page, /aria-busy="false"/);

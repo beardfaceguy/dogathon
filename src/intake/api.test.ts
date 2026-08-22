@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 
-import { intakeApi } from "./api.js";
+import { INTAKE_CORE_FIELDS, intakeApi } from "./api.js";
 
 test("normalization API returns only the raw-free projection", async () => {
   const response = await intakeApi.request("/normalize", {
@@ -180,5 +182,20 @@ test("demo API lists the four synthetic intake examples", async () => {
         example.draft._meta?.synthetic === true,
     ),
     true,
+  );
+  assert.deepEqual(body.coreFields, INTAKE_CORE_FIELDS);
+  const schema = JSON.parse(
+    readFileSync(
+      join(
+        process.cwd(),
+        "schemas",
+        "normalized-intake-record-0.1.0.schema.json",
+      ),
+      "utf8",
+    ),
+  ) as { properties: Record<string, unknown> };
+  assert.deepEqual(
+    body.coreFields.map((field: { id: string }) => field.id).sort(),
+    Object.keys(schema.properties).sort(),
   );
 });

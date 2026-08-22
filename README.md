@@ -126,8 +126,10 @@ npm run demo:intake
 
 Open **http://localhost:4112/intake**, select a synthetic intake, and compare
 the source JSON with normalized fields, applied rules, and human-review
-warnings. The standalone demo does not load Arcade, Google, Slack, Anthropic,
-or PetPoint credentials. The same page is also available at
+warnings. A responsive field table places the exact submitted intake values
+beside normalized values and marks changed, unchanged, missing, and
+review-required outcomes. The standalone demo does not load Arcade, Google,
+Slack, Anthropic, or PetPoint credentials. The same page is also available at
 **http://localhost:4111/intake** when the full starter server is configured.
 Both servers default to `localhost`; use `INTAKE_DEMO_HOST` /
 `INTAKE_DEMO_PORT` for the standalone demo and `HOST` / `PORT` for the full
