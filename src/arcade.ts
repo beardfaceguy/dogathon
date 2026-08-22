@@ -40,40 +40,59 @@ async function requirements(): Promise<Map<string, Requirement>> {
   return byProvider;
 }
 
+/** Google first, then Slack, then anything else alphabetically.
+ *
+ *  The order is load-bearing now that consent is sequential: the UI labels its
+ *  button from the first unconnected provider, so an unstable order would make
+ *  the button flip between "Connect Google" and "Connect Slack" between polls. */
+const ORDER = ["arcade-google", "arcade-slack"];
+const rank = (id: string) => {
+  const i = ORDER.indexOf(id);
+  return i === -1 ? ORDER.length : i;
+};
+
 export async function providerState(): Promise<ProviderState[]> {
   const reqs = await requirements();
-  return [...reqs.values()].map((r) => ({
-    id: r.id,
-    label: PROVIDER_LABELS[r.id] ?? r.id,
-    connected: r.pending === 0,
-  }));
+  return [...reqs.values()]
+    .map((r) => ({
+      id: r.id,
+      label: PROVIDER_LABELS[r.id] ?? r.id,
+      connected: r.pending === 0,
+    }))
+    .sort((a, b) => rank(a.id) - rank(b.id) || a.id.localeCompare(b.id));
 }
 
 export type ConnectFlow = { id: string; label: string; url: string; authId: string };
 
-/** One consent screen per provider that still needs something.
+/** Start consent for ONE provider — the next one that still needs something,
+ *  or `only` if named.
  *
- *  Returns the URLs to open. The caller waits for completion separately so the
- *  UI can show both links at once instead of serialising the two dances. */
-export async function startConnect(): Promise<ConnectFlow[]> {
+ *  Deliberately one at a time. Returning both URLs at once and opening them in
+ *  a loop looks tidier but does not work: by the time the fetch resolves the
+ *  user gesture is spent, so the browser allows the first window.open and
+ *  silently swallows the second. The button then has to be clicked twice with
+ *  no indication of why. */
+export async function startConnect(only?: string): Promise<ConnectFlow | null> {
   const reqs = await requirements();
-  const flows: ConnectFlow[] = [];
 
-  for (const req of reqs.values()) {
-    if (req.pending === 0) continue;
-    const started = await arcade.auth.start(ARCADE_USER_ID, req.id, {
-      scopes: [...req.scopes],
-    });
-    if (started.status !== "completed" && started.url) {
-      flows.push({
-        id: req.id,
-        label: PROVIDER_LABELS[req.id] ?? req.id,
-        url: started.url,
-        authId: started.id ?? "",
-      });
-    }
-  }
-  return flows;
+  const pending = [...reqs.values()]
+    .filter((r) => r.pending > 0)
+    .sort((a, b) => rank(a.id) - rank(b.id) || a.id.localeCompare(b.id));
+
+  const req = only ? pending.find((r) => r.id === only) : pending[0];
+  if (!req) return null;
+
+  const started = await arcade.auth.start(ARCADE_USER_ID, req.id, {
+    scopes: [...req.scopes],
+  });
+  if (started.status === "completed" || !started.url) return null;
+
+  return {
+    id: req.id,
+    label: PROVIDER_LABELS[req.id] ?? req.id,
+    url: started.url,
+    authId: started.id ?? "",
+  };
 }
 
 /** Blocks until the user finishes the consent screen. */

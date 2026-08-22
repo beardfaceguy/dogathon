@@ -73,11 +73,17 @@ app.get("/", (c) => c.html(page("index.html")));
 app.get("/api/state", async (c) => {
   const providers = await providerState();
   const allConnected = providers.length > 0 && providers.every((p) => p.connected);
+  const next = providers.find((p) => !p.connected) ?? null;
   return c.json({
     userId: ARCADE_USER_ID,
     channel: SLACK_CHANNEL,
     phase: !allConnected ? "connect" : gatewayConnected() ? "ready" : "gateway",
     providers,
+    next,
+    step: {
+      done: providers.filter((p) => p.connected).length,
+      total: providers.length,
+    },
     gateway: {
       url: gatewayUrl(),
       configured: gatewayConfigured(),
@@ -91,17 +97,20 @@ app.get("/api/state", async (c) => {
  *  twice doesn't produce two waiters and two duplicate log lines. */
 const awaiting = new Set<string>();
 
-/** One consent screen per provider. Returns both URLs at once rather than
- *  serialising the two dances. */
+/** Consent for the next unconnected provider, one per click.
+ *
+ *  See startConnect() for why this isn't both at once. The client relabels its
+ *  button from /api/state, so after Google completes the same button reads
+ *  "Connect Slack". */
 app.post("/api/connect", async (c) => {
+  const only = new URL(c.req.url).searchParams.get("provider") ?? undefined;
   try {
-    const flows = await startConnect();
-    if (!flows.length) {
+    const flow = await startConnect(only);
+    if (!flow) {
       log("Already connected.");
-      return c.json({ ok: true, flows: [] });
+      return c.json({ ok: true, flow: null });
     }
-    for (const flow of flows) {
-      if (!flow.authId || awaiting.has(flow.id)) continue;
+    if (flow.authId && !awaiting.has(flow.id)) {
       awaiting.add(flow.id);
       log(`Waiting for ${flow.label} authorization…`);
       awaitConnect(flow.authId)
@@ -109,7 +118,7 @@ app.post("/api/connect", async (c) => {
         .catch((e) => log(`${flow.label} authorization failed: ${e.message}`, "error"))
         .finally(() => awaiting.delete(flow.id));
     }
-    return c.json({ ok: true, flows });
+    return c.json({ ok: true, flow });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     log(`Could not start authorization: ${error}`, "error");
