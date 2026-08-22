@@ -129,6 +129,25 @@ directions:
 - **Escalation.** Some applications shouldn't be auto-processed at all. Which
   ones, and who decides?
 
+## Starting over
+
+To re-run the whole setup flow from scratch:
+
+```bash
+# stop the server first — a running one holds the tokens in memory
+# and will flush them back to disk
+npm run reset
+```
+
+That removes the only two files the client persists: `.arcade-oauth.json` (the
+gateway's OAuth tokens and registered client id) and `.arcade-gateway` (the
+gateway URL used last run). Everything else is in memory and goes with the
+process. The script then prints what to do on the Arcade side — revoke the
+connections, delete the gateway — since those affect an account, not a
+directory.
+
+Your seeded Sheet survives. You don't need to re-run `npm run seed`.
+
 ## Troubleshooting
 
 **The gateway chip stays amber.** Click Authorize. If it fails, the log says why.
