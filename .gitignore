@@ -1,0 +1,18 @@
+node_modules/
+
+# Secrets. ARCADE_API_KEY and ANTHROPIC_API_KEY live here.
+.env
+.env.local
+
+# Gateway OAuth tokens for the MCP client.
+.arcade-oauth.json
+
+# The gateway URL used last run. Not secret, but it's yours, not the repo's.
+.arcade-gateway
+
+# Python leftovers from the pre-Mastra version.
+.venv/
+__pycache__/
+*.pyc
+
+.DS_Store
