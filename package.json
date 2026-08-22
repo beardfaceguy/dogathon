@@ -5,13 +5,15 @@
   "scripts": {
     "seed": "tsx src/seed.ts",
     "dev": "tsx watch src/server.ts",
+    "demo:intake": "tsx src/intake/demo-server.ts",
     "start": "tsx src/server.ts",
     "reset": "tsx src/reset.ts",
     "evaluate:intake": "tsx src/intake/evaluate.ts",
-    "lint": "biome lint src scripts",
+    "lint": "biome lint src scripts e2e playwright.config.ts",
     "normalize:intake": "tsx src/intake/cli.ts",
     "check": "npm run lint && npm run typecheck && npm run test:layout && npm test",
     "test": "tsx scripts/run-tests.ts",
+    "test:browser": "playwright test",
     "test:layout": "tsx scripts/check-test-layout.ts",
     "typecheck": "tsc --noEmit",
     "prepare": "husky"
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.10",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",

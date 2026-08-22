@@ -1,0 +1,2413 @@
+diff --git a/.github/workflows/quality.yml b/.github/workflows/quality.yml
+index e4e8203..7e7dc6a 100644
+--- a/.github/workflows/quality.yml
++++ b/.github/workflows/quality.yml
+@@ -29,5 +29,8 @@ jobs:
+       - name: Install dependencies
+         run: npm ci
+ 
++      - name: Install Chromium
++        run: npx playwright install --with-deps chromium
++
+       - name: Run deterministic quality gate
+         run: npm run check
+diff --git a/.gitignore b/.gitignore
+index b584141..a22e6f7 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -15,4 +15,7 @@ node_modules/
+ __pycache__/
+ *.pyc
+ 
++playwright-report/
++test-results/
++
+ .DS_Store
+diff --git a/CONTEXT-MAP.md b/CONTEXT-MAP.md
+index 5d3086e..1b17e44 100644
+--- a/CONTEXT-MAP.md
++++ b/CONTEXT-MAP.md
+@@ -11,6 +11,7 @@ _Updated: 2026-08-22_
+ 
+ - Vocabulary: `CONTEXT.md`
+ - Deterministic core: `src/intake/normalize.ts`
++- Credential-free demo: `src/intake/demo-server.ts`, `src/intake/api.ts`, `public/intake.html`
+ - Field boundary: `docs/research/intake-field-matrix.md`
+ - Decision: `docs/adr/2026-08-22-deterministic-intake-core.md`
+ - Event problem statement: `Dogathon Opening Ceremony.pdf`
+diff --git a/CONTEXT.md b/CONTEXT.md
+index 667cd22..9509f5f 100644
+--- a/CONTEXT.md
++++ b/CONTEXT.md
+@@ -20,6 +20,8 @@ _Updated: 2026-08-22_
+ 
+ **Raw-free projection** — The restricted view returned by routine adapters. It omits `rawRecord` and original issue/change values, but it is not deidentified or authorization-free: normalized identifiers, reason text, transformed values, and messages may remain sensitive.
+ 
++**Intake demo** — A credential-free browser surface at `/intake` that submits synthetic or edited JSON to the deterministic core and presents normalized fields, rule provenance, and review warnings. It demonstrates the smart-layer boundary without claiming PetPoint connectivity.
++
+ **Golden projection** — The stable, review-relevant subset of a normalization result checked into `test-data/expected/` to detect contract drift without duplicating raw input records.
+ 
+ ## Sources
+@@ -27,4 +29,4 @@ _Updated: 2026-08-22_
+ - `Dogathon Opening Ceremony.pdf` identifies PetPoint as the rescue’s system of record and calls for a reliable interoperable platform or near-real-time smart layer.
+ - Shelter Animals Count provides the intake and animal-level vocabulary used by the initial deterministic mappings.
+ 
+-_Anchors: src/intake/normalize.ts::IntakeDraft, src/intake/normalize.ts::NormalizationProfile, src/intake/normalize.ts::NormalizationResult, src/intake/normalize.ts::normalizeIntake, src/intake/normalize.ts::toRawFreeProjection, src/intake/evaluate.ts::goldenProjection, src/intake/cli.ts::normalizeNdjson_
++_Anchors: src/intake/normalize.ts::IntakeDraft, src/intake/normalize.ts::NormalizationProfile, src/intake/normalize.ts::NormalizationResult, src/intake/normalize.ts::normalizeIntake, src/intake/normalize.ts::toRawFreeProjection, src/intake/api.ts::intakeApi, src/intake/demo-server.ts::intakeDemoApp, src/intake/evaluate.ts::goldenProjection, src/intake/cli.ts::normalizeNdjson_
+diff --git a/README.md b/README.md
+index fee0484..c52eb4b 100644
+--- a/README.md
++++ b/README.md
+@@ -118,6 +118,22 @@ above a shelter system of record. Its versioned JSON contracts live in
+ `schemas/`; source forms, synthetic inputs, and golden outputs live in
+ `test-data/`.
+ 
++Run the credential-free browser demo:
++
++```bash
++npm run demo:intake
++```
++
++Open **http://localhost:4112/intake**, select a synthetic intake, and compare
++the source JSON with normalized fields, applied rules, and human-review
++warnings. The standalone demo does not load Arcade, Google, Slack, Anthropic,
++or PetPoint credentials. The same page is also available at
++**http://localhost:4111/intake** when the full starter server is configured.
++Both servers default to `localhost`; use `INTAKE_DEMO_HOST` /
++`INTAKE_DEMO_PORT` for the standalone demo and `HOST` / `PORT` for the full
++starter. Binding externally exposes an unauthenticated prototype and should
++only be done on a trusted network.
++
+ ```bash
+ npm test
+ npm run check
+@@ -135,6 +151,10 @@ gate, and `main` requires that check through branch protection. Downloaded
+ reference forms are intentionally excluded from linting; their JSON-derived
+ behavior is covered by schema and fixture tests.
+ 
++Browser regressions use Playwright Chromium and are part of `npm test`. Install
++the local browser once with `npx playwright install chromium`; CI installs it
++before running the same quality gate.
++
+ Unrecognized or ambiguous values are preserved in `rawRecord` and produce
+ review warnings. Because the result carries that unrestricted source record,
+ the full internal envelope is sensitive. The CLI emits a raw-free restricted
+diff --git a/agent_review/1340-normalization-core.md b/agent_review/1340-normalization-core.md
+new file mode 100644
+index 0000000..e314202
+--- /dev/null
++++ b/agent_review/1340-normalization-core.md
+@@ -0,0 +1,126 @@
++**Protocol:** review-protocol.md v1.2
++
++## Review Request — Round 1
++**Task:** 1340 — Review deterministic intake normalization behavior and safety guarantees.
++**Protocol:** review-protocol.md v1.2 — respond using the Review Response format.
++
++### Proposed Solution
++Implement a deterministic, synchronous normalization boundary for JSON-shaped shelter intake drafts. The core:
++
++- Normalizes only the approved eight-field v0.1 boundary.
++- Uses fixed global vocabularies plus versioned organization profile aliases.
++- Preserves unknown and sensitive source data only in an internal raw envelope.
++- Records every transformation and issue.
++- Emits profile/ruleset provenance with a canonical SHA-256 digest.
++- Provides a raw-free restricted projection for routine adapters.
++- Routes ambiguous values to review instead of guessing.
++
++No model, network, database, PetPoint, or other external operation occurs inside normalization.
++
++### Relevant Code / Diff
++Review the complete actual current contents of these files, not summaries:
++
++- `src/intake/normalize.ts`
++- `src/intake/normalize.test.ts`
++- `src/intake/profile.test.ts`
++- `src/intake/projection.test.ts`
++- `src/intake/scalars.test.ts`
++- `src/intake/invariants.test.ts`
++- `src/intake/fixtures.test.ts`
++- `test-data/intake-records/*.json`
++- `test-data/expected/*.normalized.json`
++
++The implementation was introduced after the starter baseline. The exact implementation diff is:
++
++```bash
++git diff upstream/main...HEAD -- \
++  src/intake/normalize.ts \
++  src/intake/normalize.test.ts \
++  src/intake/profile.test.ts \
++  src/intake/projection.test.ts \
++  src/intake/scalars.test.ts \
++  src/intake/invariants.test.ts \
++  src/intake/fixtures.test.ts \
++  test-data/intake-records \
++  test-data/expected
++```
++
++Current deterministic verification:
++
++```text
++npm run check
++Biome: 27 files clean
++TypeScript: pass
++Test layout: 10 files discovered
++Node test runner: 34 tests pass
++GitHub quality workflow: pass
++```
++
++### Known Concerns
++1. `src/intake/normalize.ts` contains type contracts, vocabularies, profile hashing, normalization logic, and projection logic in one module.
++2. The core imports `node:crypto` for synchronous profile hashing, which constrains browser portability.
++3. `ageGroup` is documented as source-asserted, but the runtime value itself carries no basis marker.
++4. `intakeReasonText` is trimmed free text and may still contain sensitive information in the raw-free restricted projection.
++5. `changes[].to` and issue messages in the raw-free projection may require authorization despite removing original values.
++6. Profile identity is validated late, when result provenance is built, after alias tables and normalized values have already been computed in memory.
++7. Controlled vocabulary currently includes cat aliases for expansion even though v0.1 is dog-focused.
++
++### Specific Questions for Reviewer
++1. Does any rule silently convert ambiguity into false certainty?
++2. Are warning, error, and `needsReview` semantics correct and complete?
++3. Are date normalization and validation safe across time zones and date-only values?
++4. Are profile alias precedence, digest generation, and required-field handling deterministic and auditable?
++5. Does the raw-free projection remove the right information without overstating its security?
++6. Are mutation safety, idempotence, and stable ordering adequately guaranteed?
++7. Should the implementation be split before adding adapters, or is the current module cohesion acceptable?
++8. What must change before this normalization implementation is approved?
++
++## Review Response — Round 1
++**Position:** DISAGREE
++
++### Blocking Concerns
++B1. `normalizeIntake` clones only `rawRecord`; warning `value` fields retain references to nested input objects (`src/intake/normalize.ts:315-321`, `398-404`). Mutating the draft after normalization therefore mutates the returned audit result, violating mutation-safety and snapshot guarantees.
++
++B2. Profile aliases are canonicalized during application but hashed by their original keys (`src/intake/normalize.ts:223-230`, `242-267`). Profiles containing colliding aliases such as `canine_mix` and `canine-mix` produce the same digest but different normalized values depending on insertion order. Provenance therefore cannot reliably identify applied behavior.
++
++B3. Timestamp validation permits out-of-contract values because the regex accepts arbitrary two-digit hours and delegates validation to `Date` (`src/intake/normalize.ts:439-447`). For example, `2026-08-22T24:00Z` is accepted without review and converted to `2026-08-23T00:00:00.000Z`, despite not being a valid RFC 3339 timestamp. This silently converts malformed input into certainty.
++
++### Non-Blocking Suggestions
++None.
++
++**Verdict:** REVISE
++
++## Rebuttal — Round 1
++**Position:** AGREE
++
++### Responses to Blocking Concerns
++Re B1: ACCEPT — the audit envelope must be a complete snapshot, not only `rawRecord`. We will deep-clone the complete result before returning it and add a regression test that mutates a nested invalid input after normalization.
++
++Re B2: ACCEPT — canonical alias collisions make behavior insertion-order-dependent while preserving the same digest. We will validate profiles before applying aliases, reject duplicate canonicalized alias keys, and add order-independent collision tests.
++
++Re B3: ACCEPT — JavaScript date rollover is not RFC 3339 validation. We will constrain hours, minutes, seconds, and offsets lexically before parsing and retain malformed timestamps as review warnings.
++
++### New Points
++None.
++
++**Requesting:** RE-REVIEW
++
++## Review Response — Round 2
++**Position:** AGREE
++
++### Blocking Concerns
++None.
++
++### Non-Blocking Suggestions
++None.
++
++### Responses to Prior Points
++Re B1: B1: resolved. The complete result is deep-cloned, and the regression test confirms nested warning values remain snapshots.
++
++Re B2: B2: resolved. Profile validation now precedes normalization and rejects canonical alias collisions regardless of insertion order.
++
++Re B3: B3: resolved. Calendar validity and bounded RFC 3339 clock/offset components are checked before parsing.
++
++`npm run check` passes all 37 tests.
++
++**Verdict:** APPROVE
+diff --git a/agent_review/1365-demo-server.md b/agent_review/1365-demo-server.md
+new file mode 100644
+index 0000000..625f915
+--- /dev/null
++++ b/agent_review/1365-demo-server.md
+@@ -0,0 +1,188 @@
++**Protocol:** review-protocol.md v1.2
++
++## Review Request — Round 1
++**Task:** 1365 — Review credential-free demo server and starter-route integration.
++**Protocol:** review-protocol.md v1.2 — respond using the Review Response format.
++
++### Proposed Solution
++Keep the original starter application intact while exposing the intake demo in two ways:
++
++1. The configured starter server mounts `/intake` and `/api/intake/*` alongside its existing `/` and `/apply` flows.
++2. `npm run demo:intake` starts a separate Hono application bound to `127.0.0.1`, serving only the intake page and API without importing Arcade configuration or requiring credentials.
++
++The standalone app redirects `/` to `/intake`; both paths use the same `public/intake.html` and `intakeApi`.
++
++### Relevant Code / Diff
++Review the complete actual current contents of:
++
++- `src/intake/demo-server.ts`
++- `src/intake/demo-server.test.ts`
++- `src/server.ts`
++- `src/intake/api.ts`
++- `src/intake/page.test.ts`
++- `package.json` (`demo:intake` script)
++
++Exact changes are available with:
++
++```bash
++git diff -- \
++  src/intake/demo-server.ts \
++  src/intake/demo-server.test.ts \
++  src/server.ts \
++  src/intake/page.test.ts \
++  package.json
++```
++
++Current verification:
++
++```text
++npm run check → pass, 46 tests
++npm run demo:intake → http://127.0.0.1:4111/intake
++GET /intake → 200
++GET /api/intake/examples → four examples
++POST /api/intake/normalize → rawRecord absent
++```
++
++### Known Concerns
++1. `demo-server.ts` resolves `public/intake.html` from `process.cwd()`, so launching the script outside the repository root would fail.
++2. The standalone server validates neither non-numeric nor privileged `INTAKE_DEMO_PORT` values before passing them to the Node server.
++3. The full starter still requires Arcade environment values before any route, including `/intake`, can be served; the standalone command is the credential-free path.
++4. Page-serving logic is duplicated between `server.ts` and `demo-server.ts`.
++5. The intake API loads its fixed fixture set when imported by either server.
++6. The standalone server is intentionally loopback-only and is not a deployment configuration.
++7. No persistence, authentication, or operator decisions are implemented.
++
++### Specific Questions for Reviewer
++1. Is the standalone server genuinely credential-independent?
++2. Can it accidentally bind beyond loopback or collide with the configured starter?
++3. Are route mounting and import side effects safe for the original starter?
++4. Should page-serving logic or application construction be shared before approval?
++5. Are working-directory and port assumptions acceptable for the demo command?
++6. Does any current behavior misleadingly imply deployment readiness?
++7. What must change before this server slice is approved?
++
++## Review Response — Round 1
++**Position:** PARTIAL
++
++### Blocking Concerns
++B1. `src/intake/demo-server.ts:26` defaults to port 4111, identical to `src/config.ts:37`. The standalone demo therefore deterministically collides with the starter server under default settings. Use a distinct default port or provide explicit collision handling.
++
++B2. The standalone page exposes starter-only navigation: `public/intake.html:220-221` links to the operator console and adoption form, but `/` redirects back to `/intake` and `/apply` returns 404. This makes the credential-free demo visibly broken. Hide or adapt those links for standalone mode.
++
++### Non-Blocking Suggestions
++S1. Validate `INTAKE_DEMO_PORT` as an integer in the supported range and emit an actionable startup error. The fixed `127.0.0.1` hostname otherwise prevents binding beyond loopback.
++
++S2. Add tests for the root redirect, starter-route isolation (`/apply` and `/api/state` return 404), and startup port handling. The current test exercises only the in-memory Hono application.
++
++S3. Credential independence is concrete: the standalone import graph reaches `dogs.ts`, `intake/api.ts`, and `intake/normalize.ts`, but not `config.ts` or Arcade modules. The focused test also passes with Arcade environment variables removed.
++
++S4. The `process.cwd()` page path is acceptable for the documented npm script because npm runs scripts from the package root. Resolve relative to `import.meta.url` only if direct invocation outside npm is intended.
++
++S5. Sharing page-serving code is unnecessary before approval; the small duplication avoids coupling the standalone application to starter configuration.
++
++S6. Add visible demo-only wording and replace “Ready for downstream use” with less production-suggestive copy. Loopback binding is safe, but the page itself does not disclose its lack of authentication, persistence, or deployment hardening.
++
++**Verdict:** REVISE
++
++## Rebuttal — Round 1
++**Position:** AGREE
++
++### Responses to Blocking Concerns
++Re B1: ACCEPT — the standalone and configured starter should be runnable together. We will move the standalone default to port 4112 and document it.
++
++Re B2: ACCEPT — standalone mode must not render dead starter navigation. We will inject mode-specific navigation: starter links in the configured server and a standalone-demo badge in the credential-free server.
++
++### New Points
++R1. We will implement S1 with an exported integer/range validator for ports 1024–65535 and actionable errors.
++
++R2. We will implement S2 with redirect, route-isolation, and port-validation regression tests.
++
++R3. We will implement S6 with visible local-demo limitations and replace downstream-readiness wording with neutral normalization-complete wording.
++
++R4. We accept S4 and S5: npm-root page resolution and small page-serving duplication remain intentional.
++
++**Requesting:** RE-REVIEW
++
++## Review Response — Round 2
++**Position:** AGREE
++
++### Blocking Concerns
++None.
++
++### Non-Blocking Suggestions
++None.
++
++### Responses to Prior Points
++B1: resolved — validated port 4112 removes the default starter collision.
++
++B2: resolved — mode-specific injection removes dead standalone navigation.
++
++Re R1: Port validation correctly enforces integers from 1024 through 65535 with an actionable error.
++
++Re R2: Redirect, route-isolation, and port-validation regressions are now covered.
++
++Re R3: The page clearly states local-prototype limitations and uses neutral completion wording.
++
++Re R4: The retained npm-root resolution and small serving duplication remain appropriate.
++
++The full check passes all 48 tests.
++
++**Verdict:** APPROVE
++
++## Review Request — Round 3
++**Task:** 1365 — Re-review operator-directed configurable hostname change.
++**Protocol:** review-protocol.md v1.2 — respond using the Review Response format.
++
++### Proposed Solution
++After Round 2 approval, the operator required hostname addresses not be hardcoded. Both servers now use configurable hostnames with safe local defaults:
++
++- Standalone: `INTAKE_DEMO_HOST`, default `localhost`.
++- Full starter: `HOST`, default `localhost`.
++- Standalone port remains validated and defaults to 4112.
++- Empty/whitespace standalone hosts are rejected.
++- README warns that external binding exposes an unauthenticated prototype.
++
++### Relevant Code / Diff
++
++```bash
++git diff -- src/intake/demo-server.ts src/intake/demo-server.test.ts src/config.ts src/server.ts README.md
++```
++
++### Known Concerns
++1. Operators can intentionally bind to `0.0.0.0` or another external interface.
++2. The full starter `HOST` value is not validated beyond its default.
++3. `localhost` may resolve to IPv4 or IPv6 depending on the host environment.
++
++### Specific Questions for Reviewer
++1. Does configurability preserve the safe default without misleading operators?
++2. Is the external-binding warning sufficient for this local prototype?
++3. Does this post-approval change introduce a new blocker?
++
++## Review Response — Round 3
++**Position:** PARTIAL
++
++### Blocking Concerns
++B3. `src/config.ts:38` accepts an empty `HOST`. Node treats `host: ""` as an unspecified address and binds to `::`, exposing the full starter externally. This bypasses the intended safe local default accidentally. Apply the standalone non-empty, trimmed-host validation to `HOST` and add regression coverage.
++
++### Non-Blocking Suggestions
++None.
++
++### Responses to Prior Points
++B1: remains resolved.
++
++B2: remains resolved.
++
++The README warning sufficiently covers intentional external binding, and `localhost` is a safe loopback default. The 50-test check passes, but B3 means the configurable-host delta does not yet preserve approval.
++
++**Verdict:** REVISE
++
++## Rebuttal — Round 3
++**Position:** AGREE
++
++### Responses to Blocking Concerns
++Re B3: ACCEPT — an empty hostname can accidentally widen exposure. We will share the same non-empty, trimmed-host validator between standalone and full-server configuration and add regression coverage for `HOST`.
++
++### New Points
++R5. No fourth reviewer round is requested. Accepting the only remaining blocker with this concrete revision plan establishes consensus under the protocol.
++
++**Requesting:** WITHDRAWN
+diff --git a/agent_review/1366-intake-browser-ui.md b/agent_review/1366-intake-browser-ui.md
+new file mode 100644
+index 0000000..ddf02f8
+--- /dev/null
++++ b/agent_review/1366-intake-browser-ui.md
+@@ -0,0 +1,137 @@
++**Protocol:** review-protocol.md v1.2
++
++## Review Request — Round 1
++**Task:** 1366 — Review intake browser UI safety, accessibility, and presentation accuracy.
++**Protocol:** review-protocol.md v1.2 — respond using the Review Response format.
++
++### Proposed Solution
++Provide a dependency-free browser page that:
++
++- Loads only synthetic fixture examples.
++- Allows operators to edit source JSON.
++- Submits to the reviewed raw-free normalization API.
++- Displays normalized fields, applied rule IDs, warnings, errors, and provenance.
++- Uses `textContent`/DOM construction for all dynamic values.
++- Clearly states that it is a local prototype with no authentication, persistence, model, or PetPoint connection.
++- Injects valid starter navigation only in configured mode and a local-demo badge in standalone mode.
++
++The page is intentionally read-only: it identifies review needs but cannot yet accept overrides or finalize records.
++
++### Relevant Code / Diff
++Review the complete actual current contents of:
++
++- `public/intake.html`
++- `src/intake/page.test.ts`
++- `src/intake/demo-server.test.ts`
++- `src/intake/api.ts`
++- `src/intake/api.test.ts`
++- `src/server.ts::intakePage`
++- `src/intake/demo-server.ts::intakePage`
++
++Exact changes are available with:
++
++```bash
++git diff -- public/intake.html src/intake/page.test.ts src/intake/demo-server.test.ts
++```
++
++Current verification:
++
++```text
++npm run check → pass, 48 tests
++Standalone /intake → 200
++Starter /intake → 200
++All dynamic result values assigned through textContent
++Raw record absent from API response
++```
++
++### Known Concerns
++1. Failed parsing or requests update the status message but leave any previous successful result visible.
++2. Browser behavior is covered by static wiring and in-memory HTTP tests, not an automated browser engine.
++3. The initial empty state places a `div` inside a `dl`; dynamic normalized records use valid `dt`/`dd` pairs.
++4. The page displays potentially sensitive source JSON in the textarea and identifiers/reason text in the raw-free result; it is loopback-only but unauthenticated.
++5. The page does not persist, export, accept, or override reviewed values.
++6. Fetch calls have no timeout or cancellation.
++7. Styling is custom but intentionally aligned with the starter rather than shared.
++
++### Specific Questions for Reviewer
++1. Can source or API-controlled text execute as HTML or script?
++2. Can stale UI state misrepresent failed or changed normalization?
++3. Are accessibility semantics, labels, focus behavior, and status announcements adequate?
++4. Are prototype/security limitations visible and accurate?
++5. Does the page overstate what “normalization complete” means?
++6. Are loading, network failure, malformed input, and empty-result states handled correctly?
++7. What must change before this browser slice is approved?
++
++## Review Response — Round 1
++**Position:** DISAGREE
++
++### Blocking Concerns
++B1. Results are not bound to the source snapshot. Editing or reloading JSON leaves prior results visible, and edits during an in-flight request allow an older response to render as current. Parse/network failures also retain successful output (`public/intake.html:349-375`). This can misrepresent which intake was normalized. Clear or mark results stale on source changes/errors and discard responses whose source snapshot no longer matches.
++
++B2. Empty or unsupported input is presented inaccurately. The API supplies no profile (`src/intake/api.ts:153-156`), so `{}` produces no warnings/errors and `needsReview: false`; the page then reports “Normalization complete” and “Input already matched the canonical form” despite normalizing no fields (`public/intake.html:285-309,343-346`). The validation-errors panel is consequently unreachable for successful API results. Empty-result and no-profile wording must avoid claiming validation or canonical completeness.
++
++B3. The security boundary is insufficiently communicated. Operators can enter real source data, while “raw-free” output may still expose identifiers and reason text. The page states there is no authentication but does not warn that raw-free is neither deidentified nor authorization-free. Additionally, standalone mode binds to loopback, while the full starter omits a hostname (`src/server.ts:295-307`) and may be network-accessible. Require synthetic data or provide an explicit sensitive-data warning, and either enforce loopback/authentication or accurately disclose exposure.
++
++B4. Empty normalized-record states use a text-only `<div>` inside `<dl>` both initially and dynamically (`public/intake.html:245,285-294`). This does not form a valid definition-list name/value group and can produce misleading assistive-technology semantics. Render the empty message outside the `<dl>` or use valid `<dt>/<dd>` markup.
++
++B5. Normalization fetches have no timeout or cancellation (`public/intake.html:359-377`). A stalled request leaves the page permanently at “Normalizing…” with its only action disabled. Add bounded cancellation and a recoverable timeout state.
++
++### Non-Blocking Suggestions
++S1. Add browser-level tests covering source changes during requests, stale clearing, malformed/network responses, timeouts, empty objects, and malicious strings. The current page test verifies only static wiring; the 48 passing tests do not execute the DOM behavior.
++
++S2. No executable sink was found for source/API-controlled values: dynamic content uses `textContent`, form properties, and DOM construction. Preserve this boundary. Separately, HTML-escape `ORG` before server-side template replacement so customized branding cannot become markup.
++
++S3. Associate input errors with the textarea using `aria-invalid`/`aria-describedby`; consider `role="alert"` for failures and `aria-busy` during requests.
++
++**Verdict:** REVISE
++
++## Rebuttal — Round 1
++**Position:** AGREE
++
++### Responses to Blocking Concerns
++Re B1: ACCEPT — displayed output must identify one immutable source snapshot. We will invalidate and clear results on edits/reloads/errors, abort superseded requests, and discard responses when the submitted source no longer matches.
++
++Re B2: ACCEPT — an empty normalized record is not canonical completeness. We will present a distinct “no approved core fields” state, change no-change wording, and disclose that the demo applies no organization profile.
++
++Re B3: ACCEPT — we will add a prominent synthetic-data-only warning, state that raw-free output is still restricted, and bind the full starter server to loopback as documented.
++
++Re B4: ACCEPT — the empty message will be outside the definition list, which will contain only `dt`/`dd` pairs.
++
++Re B5: ACCEPT — requests will use `AbortController` with a bounded timeout, recoverable UI state, and cancellation when source changes.
++
++### New Points
++R1. We will implement S2 by HTML-escaping injected organization branding in both servers while retaining `textContent` for all dynamic result data.
++
++R2. We will implement S3 with `aria-invalid`, an associated alert description, dynamic alert/status roles, and `aria-busy`.
++
++R3. S1 is deferred to a browser-harness follow-up; this slice retains static DOM wiring tests, in-memory HTTP tests, live HTTP verification, and direct operator verification.
++
++**Requesting:** RE-REVIEW
++
++## Review Response — Round 2
++**Position:** AGREE
++
++### Blocking Concerns
++None.
++
++### Non-Blocking Suggestions
++None.
++
++### Responses to Prior Points
++B1: resolved — source invalidation, request snapshots, version checks, and abort handling prevent stale results.
++
++B2: resolved — empty and no-profile states no longer claim canonical completeness or required-field validation.
++
++B3: resolved — restricted-data warnings are prominent; hosts default safely to localhost, reject accidental empty exposure, and document intentional external binding.
++
++B4: resolved — empty messaging is outside the definition list.
++
++B5: resolved — requests use cancellation, a 10-second timeout, and recoverable UI state.
++
++Re R1: Accepted. Branding is HTML-escaped in both server modes; dynamic values retain safe DOM assignment.
++
++Re R2: Accepted. `aria-invalid`, associated alerts, dynamic status roles, and `aria-busy` are implemented.
++
++Re R3: Accepted. Browser automation remains a worthwhile follow-up but is non-blocking for this dependency-free prototype. Static and in-memory coverage plus the verified 51-test check are adequate for this slice.
++
++**Verdict:** APPROVE
+diff --git a/agent_review/1367-intake-demo-integration.md b/agent_review/1367-intake-demo-integration.md
+new file mode 100644
+index 0000000..99ac555
+--- /dev/null
++++ b/agent_review/1367-intake-demo-integration.md
+@@ -0,0 +1,70 @@
++**Protocol:** review-protocol.md v1.2
++
++## Review Request — Round 1
++**Task:** 1367 — Review intake demo vertical integration across approved sections.
++**Protocol:** review-protocol.md v1.2 — respond using the Review Response format.
++
++### Proposed Solution
++Compose the separately approved normalization core, API, server, and browser UI into one credential-free vertical slice:
++
++```text
++synthetic or edited JSON
++  → POST /api/intake/normalize
++  → deterministic sensitive result inside process
++  → raw-free restricted projection over HTTP
++  → normalized fields + rules + warnings + provenance in browser
++```
++
++The standalone command defaults to `localhost:4112`; the full starter can expose the same page through its configurable host/port. The slice is read-only and explicitly does not claim authentication, persistence, PetPoint connectivity, or completed human review.
++
++### Relevant Code / Diff
++Review only interfaces between these already reviewed sections:
++
++- `public/intake.html` fetch/render flow.
++- `src/intake/api.ts` request and response contract.
++- `src/intake/demo-server.ts` route composition.
++- `src/server.ts` configured-starter route composition.
++- `src/intake/normalize.ts::toRawFreeProjection`.
++- `src/intake/api.test.ts`, `demo-server.test.ts`, and `page.test.ts`.
++
++Current live evidence:
++
++```text
++npm run check → pass, 51 tests
++GET http://localhost:4112/intake → 200
++page: prototype warning present
++page: standalone badge present
++page: dead starter links absent
++valid POST: normalized dog/stray/id, rawRecord absent, needsReview false
++ambiguous POST: species warning visible in response, needsReview true
++```
++
++### Known Concerns
++1. Inline browser behavior is not executed by an automated DOM/browser harness.
++2. The configured starter route has in-memory/static tests but has not been exercised with real Arcade credentials in this slice.
++3. The demo applies no organization profile, so required fields are not evaluated.
++4. The browser displays review warnings but cannot accept overrides or finalize records.
++5. External host binding is configurable and intentionally unsafe without a trusted network; warnings are documented and visible.
++6. Synthetic fixture files remain the only example source.
++
++### Specific Questions for Reviewer
++1. Do the approved interfaces compose without reintroducing raw-data leakage?
++2. Can the browser display a result for a different source snapshot?
++3. Are live success and review-required states accurate end to end?
++4. Does either server mode break or misrepresent the other?
++5. Is the absence of profile validation and operator decisions sufficiently explicit?
++6. What must change before the vertical demo slice is approved?
++
++## Review Response — Round 1
++**Position:** AGREE
++
++### Blocking Concerns
++None.
++
++### Non-Blocking Suggestions
++S1. Add browser-level coverage for stale-response rejection and success/review-required rendering; current tests verify wiring but do not execute inline UI behavior.
++
++**Verdict:** APPROVE
++
++## Post-Approval Follow-up
++S1 completed. `e2e/intake.spec.ts` now runs in Playwright Chromium and covers success/review rendering, stale-response rejection, timeout recovery, and source-controlled markup safety. The repository-wide test runner, pre-commit hook, and CI quality gate execute these browser regressions.
+diff --git a/agent_review/1368-intake-api.md b/agent_review/1368-intake-api.md
+new file mode 100644
+index 0000000..82f4eb3
+--- /dev/null
++++ b/agent_review/1368-intake-api.md
+@@ -0,0 +1,117 @@
++**Protocol:** review-protocol.md v1.2
++
++## Review Request — Round 1
++**Task:** 1368 — Review intake demo API contract and security.
++**Protocol:** review-protocol.md v1.2 — respond using the Review Response format.
++
++### Proposed Solution
++Expose the approved deterministic normalizer through a small Hono sub-application:
++
++- `GET /examples` returns four explicitly synthetic fixture drafts for the browser demo.
++- `POST /normalize` accepts one JSON object, rejects malformed/non-object payloads, applies a 100 KB demo limit, normalizes deterministically, and returns only the raw-free restricted projection.
++- Both routes set `Cache-Control: no-store`.
++- No Arcade, model, Google, Slack, PetPoint, database, or network client is imported.
++
++### Relevant Code / Diff
++Review the complete actual current contents of:
++
++- `src/intake/api.ts`
++- `src/intake/api.test.ts`
++- `src/intake/normalize.ts::normalizeIntake`
++- `src/intake/normalize.ts::toRawFreeProjection`
++- `test-data/intake-records/*.json`
++
++The exact new API diff is available with:
++
++```bash
++git diff -- src/intake/api.ts src/intake/api.test.ts
++```
++
++Current verification:
++
++```text
++npm run check
++Biome: 32 maintained files clean
++TypeScript: pass
++Test layout: 13 files discovered
++Node test runner: 43 tests pass
++
++Live HTTP:
++GET /intake → 200
++GET /api/intake/examples → four synthetic examples
++POST /api/intake/normalize → rawRecord absent
++```
++
++### Known Concerns
++1. The body-size check occurs after `c.req.text()` has read the body into memory.
++2. The examples endpoint reads JSON files synchronously on every request and assumes the process working directory is the repository root.
++3. Example fixtures include synthetic contact, medical, behavioral, and identifier fields; they are clearly marked synthetic but still demonstrate sensitive shapes.
++4. The API accepts open JSON drafts rather than rejecting malformed field types, because review warnings are part of the product behavior.
++5. `needsReview: true` is returned with HTTP 200 because normalization succeeded; callers must inspect the result.
++6. Missing or invalid fixture files would currently surface as an unhandled server error.
++7. The raw-free projection can still contain identifiers and reason text and is not deidentified or authorization-free.
++
++### Specific Questions for Reviewer
++1. Can oversized or malformed requests cause avoidable resource or error-handling problems?
++2. Is the API status-code and response contract appropriate?
++3. Can any raw or sensitive source value leak unexpectedly?
++4. Are synthetic examples served safely and clearly enough?
++5. Are cache and content-type behaviors sufficient for this local demo?
++6. Is filesystem fixture loading acceptable for the demo boundary?
++7. What must change before this API slice is approved?
++
++## Review Response — Round 1
++**Position:** DISAGREE
++
++### Blocking Concerns
++B1. `src/intake/api.ts:77` passes any parsed object directly to `normalizeIntake`, whose `structuredClone` at `src/intake/normalize.ts:311` can throw on deeply nested valid JSON. A 10,013-byte request with 5,000 nested arrays returned an unstructured HTTP 500 instead of a normalization warning or controlled client error. Add bounded structural validation or otherwise reject excessive nesting, with a regression test.
++
++B2. `src/intake/api.ts:54-55` buffers and decodes the complete request before checking its size. Therefore, the advertised 100 KB limit does not protect memory from arbitrarily large requests. Enforce the limit while reading—or before reading when `Content-Length` is trustworthy—and test oversized fixed-length and streamed bodies.
++
++### Non-Blocking Suggestions
++S1. Require a JSON media type and return 415 otherwise. Currently `text/plain` JSON succeeds, allowing cross-origin simple POSTs against the local service.
++
++S2. Resolve fixtures relative to the module and load them once. The current `process.cwd()` dependency and synchronous per-request reads make `/examples` fail with a generic 500 outside the expected working directory.
++
++S3. Explicitly bind the standalone demo to a loopback hostname if “local demo” is a security boundary; omitting `hostname` does not enforce localhost-only access.
++
++**Verdict:** REVISE
++
++## Rebuttal — Round 1
++**Position:** AGREE
++
++### Responses to Blocking Concerns
++Re B1: ACCEPT — valid JSON can still exceed safe structural depth. We will reject drafts deeper than 64 levels before normalization and add a regression test for deeply nested input.
++
++Re B2: ACCEPT — checking after `text()` is not a memory limit. We will read the request stream incrementally, reject both declared and observed bodies above 100 KB, cancel oversized streams, and test fixed-length and streamed requests.
++
++### New Points
++R1. We will implement S1 by requiring `application/json` or a `+json` media type and returning 415 otherwise.
++
++R2. We will implement S2 by resolving fixtures relative to `api.ts` and loading the fixed synthetic examples once at module initialization.
++
++R3. We will implement S3 in the server slice by binding the standalone demo explicitly to `127.0.0.1`.
++
++**Requesting:** RE-REVIEW
++
++## Review Response — Round 2
++**Position:** AGREE
++
++### Blocking Concerns
++None.
++
++### Non-Blocking Suggestions
++None.
++
++### Responses to Prior Points
++B1: resolved — depth is iteratively bounded at 64 before normalization, with regression coverage.
++
++B2: resolved — declared and observed sizes are bounded before full buffering; oversized streams are cancelled and tested.
++
++Re R1: JSON and `+json` media types are enforced with 415 otherwise.
++
++Re R2: fixtures are module-relative and loaded once.
++
++Re R3: the standalone server explicitly binds `127.0.0.1`.
++
++**Verdict:** APPROVE
+diff --git a/e2e/intake.spec.ts b/e2e/intake.spec.ts
+new file mode 100644
+index 0000000..34fe28c
+--- /dev/null
++++ b/e2e/intake.spec.ts
+@@ -0,0 +1,88 @@
++import { expect, test } from "@playwright/test";
++
++test.beforeEach(async ({ page }) => {
++  await page.goto("/intake");
++  await expect(page.locator("#example option")).toHaveCount(4);
++});
++
++test("renders successful and review-required normalization states", async ({
++  page,
++}) => {
++  await page.getByRole("button", { name: "Normalize intake" }).click();
++  await expect(page.getByRole("status")).toHaveText("Normalization complete");
++  await expect(page.locator("#record")).toContainText("species");
++  await expect(page.locator("#record")).toContainText("dog");
++  await expect(page.locator("#warnings")).toContainText(
++    "No human review warnings.",
++  );
++
++  await page.locator("#example").selectOption("ambiguous");
++  await page.getByRole("button", { name: "Normalize intake" }).click();
++  await expect(page.getByRole("status")).toHaveText("Human review required");
++  await expect(page.locator("#warnings")).toContainText(
++    "Species is not in the supported vocabulary.",
++  );
++});
++
++test("discards an in-flight result when source JSON changes", async ({
++  page,
++}) => {
++  let releaseRequest: (() => void) | undefined;
++  const requestHeld = new Promise<void>((resolve) => {
++    releaseRequest = resolve;
++  });
++  await page.route("**/api/intake/normalize", async (route) => {
++    await requestHeld;
++    await route.continue().catch(() => undefined);
++  });
++
++  await page.getByRole("button", { name: "Normalize intake" }).click();
++  await expect(page.getByRole("status")).toHaveText("Normalizing…");
++  await page.locator("#source").fill('{"animalId":"CHANGED"}');
++  await expect(page.getByRole("status")).toHaveText(
++    "Source changed — run normalization again.",
++  );
++  releaseRequest?.();
++
++  await expect(page.locator("#record-empty")).toHaveText(
++    "Result cleared because the source changed.",
++  );
++  await expect(page.locator("#record")).not.toContainText("SF-2026-0042");
++});
++
++test("times out stalled normalization and recovers the action", async ({
++  page,
++}) => {
++  await page.clock.install();
++  await page.route("**/api/intake/normalize", async () => {
++    await new Promise(() => undefined);
++  });
++
++  await page.getByRole("button", { name: "Normalize intake" }).click();
++  await expect(page.getByRole("status")).toHaveText("Normalizing…");
++  await page.clock.fastForward(10_001);
++
++  await expect(page.getByRole("alert")).toHaveText(
++    "Normalization timed out. Try again.",
++  );
++  await expect(
++    page.getByRole("button", { name: "Normalize intake" }),
++  ).toBeEnabled();
++});
++
++test("renders source-controlled values as text rather than markup", async ({
++  page,
++}) => {
++  await page.locator("#source").fill(
++    JSON.stringify({
++      animalId: "XSS-TEST",
++      intakeReasonText: '<img src=x onerror="window.__xss = true">',
++    }),
++  );
++  await page.getByRole("button", { name: "Normalize intake" }).click();
++
++  await expect(page.getByRole("status")).toHaveText("Normalization complete");
++  await expect(page.locator("#record")).toContainText("<img src=x");
++  await expect(page.locator("#record img")).toHaveCount(0);
++  expect(await page.evaluate(() => Reflect.get(window, "__xss"))).toBeUndefined();
++});
+diff --git a/package-lock.json b/package-lock.json
+index b0d11af..15754b9 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -17,6 +17,7 @@
+       },
+       "devDependencies": {
+         "@biomejs/biome": "^2.5.10",
++        "@playwright/test": "^1.62.1",
+         "@types/node": "^26.2.0",
+         "ajv": "^8.20.0",
+         "ajv-formats": "^3.0.1",
+@@ -1174,6 +1175,22 @@
+         }
+       }
+     },
++    "node_modules/@playwright/test": {
++      "version": "1.62.1",
++      "resolved": "https://registry.npmjs.org/@playwright/test/-/test-1.62.1.tgz",
++      "integrity": "sha512-DTcUc8qii+cpHvtOwggMtBRMjKZHXYWdw8syRYu2vtzuq4Wxphqq4NfCs5Zt44L6mA8rfDfj+PHnxFc/FeK6mQ==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "playwright": "1.62.1"
++      },
++      "bin": {
++        "playwright": "cli.js"
++      },
++      "engines": {
++        "node": ">=20"
++      }
++    },
+     "node_modules/@posthog/core": {
+       "version": "1.48.8",
+       "resolved": "https://registry.npmjs.org/@posthog/core/-/core-1.48.8.tgz",
+@@ -3755,6 +3772,53 @@
+         "node": ">=16.20.0"
+       }
+     },
++    "node_modules/playwright": {
++      "version": "1.62.1",
++      "resolved": "https://registry.npmjs.org/playwright/-/playwright-1.62.1.tgz",
++      "integrity": "sha512-0M+L3LAD8/nm554LOla9Ayx0j0tmFZ0FBcoQ7F1VuVHpM/XpiC8RcDzBQB8W5+hA8L22THxELzeF+2WcUzvcLg==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "playwright-core": "1.62.1"
++      },
++      "bin": {
++        "playwright": "cli.js"
++      },
++      "engines": {
++        "node": ">=20"
++      },
++      "optionalDependencies": {
++        "fsevents": "2.3.2"
++      }
++    },
++    "node_modules/playwright-core": {
++      "version": "1.62.1",
++      "resolved": "https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz",
++      "integrity": "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "bin": {
++        "playwright-core": "cli.js"
++      },
++      "engines": {
++        "node": ">=20"
++      }
++    },
++    "node_modules/playwright/node_modules/fsevents": {
++      "version": "2.3.2",
++      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz",
++      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
++      "dev": true,
++      "hasInstallScript": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
++      }
++    },
+     "node_modules/posthog-node": {
+       "version": "5.50.0",
+       "resolved": "https://registry.npmjs.org/posthog-node/-/posthog-node-5.50.0.tgz",
+diff --git a/package.json b/package.json
+index 0a9670e..046d351 100644
+--- a/package.json
++++ b/package.json
+@@ -5,13 +5,15 @@
+   "scripts": {
+     "seed": "tsx src/seed.ts",
+     "dev": "tsx watch src/server.ts",
++    "demo:intake": "tsx src/intake/demo-server.ts",
+     "start": "tsx src/server.ts",
+     "reset": "tsx src/reset.ts",
+     "evaluate:intake": "tsx src/intake/evaluate.ts",
+-    "lint": "biome lint src scripts",
++    "lint": "biome lint src scripts e2e playwright.config.ts",
+     "normalize:intake": "tsx src/intake/cli.ts",
+     "check": "npm run lint && npm run typecheck && npm run test:layout && npm test",
+     "test": "tsx scripts/run-tests.ts",
++    "test:browser": "playwright test",
+     "test:layout": "tsx scripts/check-test-layout.ts",
+     "typecheck": "tsc --noEmit",
+     "prepare": "husky"
+@@ -28,6 +30,7 @@
+   },
+   "devDependencies": {
+     "@biomejs/biome": "^2.5.10",
++    "@playwright/test": "^1.62.1",
+     "@types/node": "^26.2.0",
+     "ajv": "^8.20.0",
+     "ajv-formats": "^3.0.1",
+diff --git a/playwright.config.ts b/playwright.config.ts
+new file mode 100644
+index 0000000..0f19beb
+--- /dev/null
++++ b/playwright.config.ts
+@@ -0,0 +1,27 @@
++import { defineConfig, devices } from "@playwright/test";
++
++export default defineConfig({
++  testDir: "./e2e",
++  fullyParallel: false,
++  forbidOnly: Boolean(process.env.CI),
++  retries: process.env.CI ? 1 : 0,
++  reporter: process.env.CI ? "github" : "list",
++  use: {
++    baseURL: "http://localhost:4112",
++    trace: "retain-on-failure",
++  },
++  webServer: {
++    command: "npm run demo:intake",
++    url: "http://localhost:4112/intake",
++    reuseExistingServer: !process.env.CI,
++    timeout: 30_000,
++  },
++  projects: [
++    {
++      name: "chromium",
++      use: {
++        ...devices["Desktop Chrome"],
++      },
++    },
++  ],
++});
+diff --git a/public/intake.html b/public/intake.html
+new file mode 100644
+index 0000000..e94c434
+--- /dev/null
++++ b/public/intake.html
+@@ -0,0 +1,511 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8" />
++  <meta name="viewport" content="width=device-width, initial-scale=1" />
++  <title>Intake normalizer — {{ORG}}</title>
++  <style>
++    :root {
++      color-scheme: dark;
++      --bg: #11100f;
++      --panel: #1b1917;
++      --panel-2: #24211e;
++      --line: #3a3530;
++      --text: #f5efe5;
++      --muted: #b8aea1;
++      --accent: #ff7657;
++      --green: #7dcc9b;
++      --amber: #ffc56e;
++      --red: #ff8b7d;
++    }
++    * { box-sizing: border-box; }
++    body {
++      margin: 0;
++      min-height: 100vh;
++      background:
++        radial-gradient(circle at 12% 5%, rgba(255, 118, 87, 0.13), transparent 30rem),
++        var(--bg);
++      color: var(--text);
++      font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
++    }
++    header, main {
++      width: min(1400px, calc(100% - 32px));
++      margin-inline: auto;
++    }
++    header {
++      display: flex;
++      align-items: end;
++      justify-content: space-between;
++      gap: 24px;
++      padding: 34px 0 24px;
++    }
++    .eyebrow {
++      color: var(--accent);
++      font-size: 12px;
++      font-weight: 750;
++      letter-spacing: 0.13em;
++      text-transform: uppercase;
++    }
++    h1 {
++      margin: 4px 0 3px;
++      font-size: clamp(28px, 4vw, 48px);
++      line-height: 1.05;
++      letter-spacing: -0.035em;
++    }
++    header p { margin: 0; color: var(--muted); }
++    nav { display: flex; flex-wrap: wrap; gap: 10px; }
++    nav a {
++      color: var(--text);
++      text-decoration: none;
++      border: 1px solid var(--line);
++      border-radius: 999px;
++      padding: 8px 13px;
++    }
++    nav a:hover { border-color: var(--accent); }
++    .notice {
++      width: min(1400px, calc(100% - 32px));
++      margin: 0 auto 16px;
++      border-left: 4px solid var(--amber);
++      border-radius: 10px;
++      background: rgba(255, 197, 110, 0.1);
++      padding: 11px 14px;
++      color: #f4d7a8;
++    }
++    .toolbar {
++      display: flex;
++      flex-wrap: wrap;
++      align-items: end;
++      gap: 12px;
++      border: 1px solid var(--line);
++      border-radius: 16px;
++      background: rgba(27, 25, 23, 0.9);
++      padding: 14px;
++      margin-bottom: 16px;
++    }
++    label {
++      display: grid;
++      gap: 5px;
++      color: var(--muted);
++      font-size: 12px;
++      font-weight: 700;
++      letter-spacing: 0.04em;
++      text-transform: uppercase;
++    }
++    select, button, textarea {
++      color: var(--text);
++      font: inherit;
++    }
++    select, button {
++      min-height: 42px;
++      border: 1px solid var(--line);
++      border-radius: 10px;
++      background: var(--panel-2);
++      padding: 8px 12px;
++    }
++    button {
++      cursor: pointer;
++      font-weight: 750;
++    }
++    button.primary {
++      border-color: transparent;
++      background: var(--accent);
++      color: #1c100d;
++    }
++    button:disabled { cursor: wait; opacity: 0.65; }
++    .status {
++      margin-left: auto;
++      border-radius: 999px;
++      padding: 7px 12px;
++      color: var(--muted);
++      background: var(--panel-2);
++    }
++    .status.ready { color: var(--green); }
++    .status.review { color: var(--amber); }
++    .status.error { color: var(--red); }
++    .workspace {
++      display: grid;
++      grid-template-columns: minmax(300px, 0.95fr) minmax(420px, 1.35fr);
++      gap: 16px;
++      padding-bottom: 36px;
++    }
++    .panel {
++      min-width: 0;
++      border: 1px solid var(--line);
++      border-radius: 16px;
++      background: rgba(27, 25, 23, 0.94);
++      overflow: hidden;
++    }
++    .panel h2 {
++      margin: 0;
++      padding: 14px 16px;
++      border-bottom: 1px solid var(--line);
++      font-size: 14px;
++      letter-spacing: 0.02em;
++    }
++    textarea {
++      display: block;
++      width: 100%;
++      min-height: 650px;
++      resize: vertical;
++      border: 0;
++      outline: 0;
++      background: transparent;
++      padding: 16px;
++      color: #f3e7d8;
++      font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
++      tab-size: 2;
++    }
++    .source-help, .input-error {
++      margin: 0;
++      padding: 10px 16px;
++      border-bottom: 1px solid var(--line);
++      color: var(--muted);
++      font-size: 13px;
++    }
++    .input-error { color: var(--red); }
++    .results {
++      display: grid;
++      grid-template-columns: 1fr 1fr;
++    }
++    .result-block {
++      min-width: 0;
++      padding: 16px;
++      border-bottom: 1px solid var(--line);
++    }
++    .result-block:nth-child(odd) { border-right: 1px solid var(--line); }
++    .result-block h3 {
++      margin: 0 0 12px;
++      color: var(--muted);
++      font-size: 12px;
++      letter-spacing: 0.08em;
++      text-transform: uppercase;
++    }
++    dl {
++      display: grid;
++      grid-template-columns: minmax(110px, 0.6fr) 1fr;
++      gap: 7px 12px;
++      margin: 0;
++    }
++    dt { color: var(--muted); }
++    dd {
++      margin: 0;
++      overflow-wrap: anywhere;
++      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
++    }
++    ul {
++      display: grid;
++      gap: 8px;
++      margin: 0;
++      padding: 0;
++      list-style: none;
++    }
++    li {
++      border-left: 3px solid var(--line);
++      background: var(--panel-2);
++      padding: 8px 10px;
++      overflow-wrap: anywhere;
++    }
++    #changes li { border-color: var(--green); }
++    #warnings li { border-color: var(--amber); }
++    #errors li { border-color: var(--red); }
++    .empty { color: var(--muted); }
++    .provenance {
++      grid-column: 1 / -1;
++      color: var(--muted);
++      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
++    }
++    @media (max-width: 900px) {
++      header { align-items: start; flex-direction: column; }
++      .workspace { grid-template-columns: 1fr; }
++      textarea { min-height: 420px; }
++    }
++    @media (max-width: 620px) {
++      .status { margin-left: 0; width: 100%; }
++      .results { grid-template-columns: 1fr; }
++      .result-block:nth-child(odd) { border-right: 0; }
++    }
++  </style>
++</head>
++<body>
++  <header>
++    <div>
++      <div class="eyebrow">{{ORG}} · Smart intake layer</div>
++      <h1>Deterministic intake normalizer</h1>
++      <p>Clean what is certain. Escalate what is ambiguous. No model required.</p>
++      <p>Local prototype only: no authentication, persistence, or PetPoint connection.</p>
++    </div>
++    <!--INTAKE_NAV-->
++  </header>
++
++  <aside class="notice">
++    Use synthetic data only. This local prototype has no authentication or persistence.
++    Raw-free output can still contain identifiers and intake reason text; it is restricted,
++    not deidentified or authorization-free.
++  </aside>
++
++  <main>
++    <div class="toolbar">
++      <label>
++        Synthetic example
++        <select id="example"></select>
++      </label>
++      <button type="button" id="reload">Reload example</button>
++      <button type="button" class="primary" id="normalize">Normalize intake</button>
++      <div class="status" id="status" role="status">Loading examples…</div>
++    </div>
++
++    <div class="workspace">
++      <section class="panel">
++        <h2>Source intake JSON</h2>
++        <p class="source-help" id="source-guidance">
++          Editing the source invalidates any displayed result. Run normalization again after changes.
++        </p>
++        <p class="input-error" id="source-error" role="alert" hidden></p>
++        <textarea
++          id="source"
++          spellcheck="false"
++          aria-label="Source intake JSON"
++          aria-describedby="source-guidance source-error"
++          aria-invalid="false"
++        ></textarea>
++      </section>
++
++      <section class="panel" id="result-panel" aria-busy="false">
++        <h2>Raw-free normalization result</h2>
++        <div class="results">
++          <section class="result-block">
++            <h3>Normalized record</h3>
++            <div class="empty" id="record-empty">Run normalization to see fields.</div>
++            <dl id="record"></dl>
++          </section>
++          <section class="result-block">
++            <h3>Applied rules</h3>
++            <ul id="changes"><li class="empty">No rules applied yet.</li></ul>
++          </section>
++          <section class="result-block">
++            <h3>Review warnings</h3>
++            <ul id="warnings"><li class="empty">No warnings yet.</li></ul>
++          </section>
++          <section class="result-block">
++            <h3>Validation errors</h3>
++            <ul id="errors"><li class="empty">No errors yet.</li></ul>
++          </section>
++          <div class="result-block provenance" id="provenance">No result provenance yet.</div>
++        </div>
++      </section>
++    </div>
++  </main>
++
++  <script>
++    const exampleSelect = document.querySelector("#example");
++    const source = document.querySelector("#source");
++    const normalizeButton = document.querySelector("#normalize");
++    const status = document.querySelector("#status");
++    const resultPanel = document.querySelector("#result-panel");
++    const sourceError = document.querySelector("#source-error");
++    const recordEmpty = document.querySelector("#record-empty");
++    const examples = new Map();
++    let activeController = null;
++    let sourceVersion = 0;
++
++    function setStatus(text, state = "") {
++      status.textContent = text;
++      status.className = `status ${state}`.trim();
++      status.setAttribute("role", state === "error" ? "alert" : "status");
++    }
++
++    function setInputError(message = "") {
++      source.setAttribute("aria-invalid", message ? "true" : "false");
++      sourceError.textContent = message;
++      sourceError.hidden = !message;
++    }
++
++    function emptyList(element, message) {
++      element.replaceChildren();
++      const item = document.createElement("li");
++      item.className = "empty";
++      item.textContent = message;
++      element.append(item);
++    }
++
++    function clearResults(message = "Run normalization to see fields.") {
++      document.querySelector("#record").replaceChildren();
++      recordEmpty.textContent = message;
++      recordEmpty.hidden = false;
++      emptyList(document.querySelector("#changes"), "No deterministic changes displayed.");
++      emptyList(document.querySelector("#warnings"), "No review warnings displayed.");
++      emptyList(document.querySelector("#errors"), "No profile validation results displayed.");
++      document.querySelector("#provenance").textContent = "No result provenance displayed.";
++    }
++
++    function invalidateResults(message = "Source changed — run normalization again.") {
++      sourceVersion += 1;
++      activeController?.abort();
++      activeController = null;
++      normalizeButton.disabled = false;
++      resultPanel.setAttribute("aria-busy", "false");
++      setInputError();
++      clearResults("Result cleared because the source changed.");
++      setStatus(message);
++    }
++
++    function renderRecord(record) {
++      const target = document.querySelector("#record");
++      target.replaceChildren();
++      const entries = Object.entries(record);
++      if (entries.length === 0) {
++        recordEmpty.textContent =
++          "No approved core fields were present. No organization profile is applied in this demo.";
++        recordEmpty.hidden = false;
++        return;
++      }
++      recordEmpty.hidden = true;
++      for (const [field, value] of entries) {
++        const term = document.createElement("dt");
++        term.textContent = field;
++        const definition = document.createElement("dd");
++        definition.textContent = typeof value === "string" ? value : JSON.stringify(value);
++        target.append(term, definition);
++      }
++    }
++
++    function renderChanges(changes) {
++      const target = document.querySelector("#changes");
++      if (changes.length === 0) {
++        emptyList(target, "No deterministic changes were applicable.");
++        return;
++      }
++      target.replaceChildren();
++      for (const change of changes) {
++        const item = document.createElement("li");
++        item.textContent = `${change.field} → ${JSON.stringify(change.to)} · ${change.ruleId}`;
++        target.append(item);
++      }
++    }
++
++    function renderIssues(id, issues, emptyMessage) {
++      const target = document.querySelector(id);
++      if (issues.length === 0) {
++        emptyList(target, emptyMessage);
++        return;
++      }
++      target.replaceChildren();
++      for (const issue of issues) {
++        const item = document.createElement("li");
++        item.textContent = `${issue.field}: ${issue.message} (${issue.code})`;
++        target.append(item);
++      }
++    }
++
++    function renderResult(result) {
++      renderRecord(result.normalizedRecord);
++      renderChanges(result.changes);
++      renderIssues("#warnings", result.warnings, "No human review warnings.");
++      renderIssues(
++        "#errors",
++        result.errors,
++        result.provenance.profile
++          ? "No profile validation errors."
++          : "No organization profile is applied; required fields were not evaluated.",
++      );
++      document.querySelector("#provenance").textContent =
++        `schema ${result.schemaVersion} · rules ${result.provenance.rulesetVersion}` +
++        (result.provenance.profile
++          ? ` · profile ${result.provenance.profile.id}@${result.provenance.profile.revision}`
++          : " · no organization profile");
++      if (Object.keys(result.normalizedRecord).length === 0) {
++        setStatus("No approved core fields found", "review");
++      } else {
++        setStatus(
++          result.needsReview ? "Human review required" : "Normalization complete",
++          result.needsReview ? "review" : "ready",
++        );
++      }
++    }
++
++    function loadSelectedExample() {
++      const draft = examples.get(exampleSelect.value);
++      if (!draft) return;
++      invalidateResults("Example loaded — run normalization.");
++      source.value = JSON.stringify(draft, null, 2);
++    }
++
++    document.querySelector("#reload").addEventListener("click", loadSelectedExample);
++    exampleSelect.addEventListener("change", loadSelectedExample);
++    source.addEventListener("input", () => invalidateResults());
++
++    normalizeButton.addEventListener("click", async () => {
++      activeController?.abort();
++      const controller = new AbortController();
++      activeController = controller;
++      const requestVersion = ++sourceVersion;
++      const submittedSource = source.value;
++      let timedOut = false;
++      const timeout = setTimeout(() => {
++        timedOut = true;
++        controller.abort();
++      }, 10_000);
++
++      normalizeButton.disabled = true;
++      resultPanel.setAttribute("aria-busy", "true");
++      setInputError();
++      clearResults("Normalization in progress…");
++      setStatus("Normalizing…");
++      try {
++        try {
++          JSON.parse(submittedSource);
++        } catch {
++          setInputError("Source must be valid JSON.");
++          throw new Error("Fix the source JSON and try again.");
++        }
++        const response = await fetch("/api/intake/normalize", {
++          method: "POST",
++          headers: { "content-type": "application/json" },
++          body: submittedSource,
++          signal: controller.signal,
++        });
++        const body = await response.json();
++        if (requestVersion !== sourceVersion || source.value !== submittedSource) return;
++        if (!response.ok || !body.ok) throw new Error(body.error ?? "Normalization failed.");
++        renderResult(body.result);
++      } catch (error) {
++        if (requestVersion !== sourceVersion) return;
++        clearResults("No current result.");
++        setStatus(
++          timedOut
++            ? "Normalization timed out. Try again."
++            : error instanceof Error
++              ? error.message
++              : String(error),
++          "error",
++        );
++      } finally {
++        clearTimeout(timeout);
++        if (requestVersion === sourceVersion) {
++          activeController = null;
++          normalizeButton.disabled = false;
++          resultPanel.setAttribute("aria-busy", "false");
++        }
++      }
++    });
++
++    fetch("/api/intake/examples")
++      .then((response) => {
++        if (!response.ok) throw new Error("Could not load examples.");
++        return response.json();
++      })
++      .then(({ examples: loadedExamples }) => {
++        for (const example of loadedExamples) {
++          examples.set(example.id, example.draft);
++          const option = document.createElement("option");
++          option.value = example.id;
++          option.textContent = example.label;
++          exampleSelect.append(option);
++        }
++        exampleSelect.value = "stray";
++        loadSelectedExample();
++      })
++      .catch((error) => setStatus(error.message, "error"));
++  </script>
++</body>
++</html>
+diff --git a/scripts/run-tests.ts b/scripts/run-tests.ts
+index b213872..d0e62f3 100644
+--- a/scripts/run-tests.ts
++++ b/scripts/run-tests.ts
+@@ -19,13 +19,32 @@ if (testFiles.length === 0) {
+   process.exit(1);
+ }
+ 
+-console.log(`Running ${testFiles.length} test files.`);
+-const run = spawnSync(
+-  process.execPath,
+-  ["--import", "tsx", "--test", ...testFiles],
+-  {
+-    cwd: root,
+-    stdio: "inherit",
+-  },
+-);
+-process.exit(run.status ?? 1);
++const unitTests = testFiles.filter((path) => path.endsWith(".test.ts"));
++const browserTests = testFiles.filter((path) => path.endsWith(".spec.ts"));
++
++if (unitTests.length > 0) {
++  console.log(`Running ${unitTests.length} unit test files.`);
++  const run = spawnSync(
++    process.execPath,
++    ["--import", "tsx", "--test", ...unitTests],
++    {
++      cwd: root,
++      stdio: "inherit",
++    },
++  );
++  if (run.status !== 0) process.exit(run.status ?? 1);
++}
++
++if (browserTests.length > 0) {
++  console.log(`Running ${browserTests.length} browser test files.`);
++  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
++  const run = spawnSync(
++    npx,
++    ["playwright", "test", ...browserTests],
++    {
++      cwd: root,
++      stdio: "inherit",
++    },
++  );
++  if (run.status !== 0) process.exit(run.status ?? 1);
++}
+diff --git a/src/config.ts b/src/config.ts
+index 7a87885..d685627 100644
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -1,5 +1,7 @@
+ import "dotenv/config";
+ 
++import { configuredHost } from "./host.js";
++
+ function required(name: string): string {
+   const v = process.env[name];
+   if (!v) throw new Error(`Missing ${name} in .env — copy .env.example and fill it in.`);
+@@ -35,6 +37,7 @@ export const GATEWAY_URL_DEFAULT = process.env.ARCADE_GATEWAY_URL
+ export const GATEWAY_AUTH = (process.env.GATEWAY_AUTH ?? "oauth") as "oauth" | "headers";
+ 
+ export const PORT = Number(process.env.PORT ?? 4111);
++export const HOST = configuredHost(process.env.HOST, "HOST");
+ export const POLL_MS = Number(process.env.POLL_MS ?? 10_000);
+ export const MODEL = process.env.MODEL ?? "anthropic/claude-sonnet-5";
+ 
+diff --git a/src/host.test.ts b/src/host.test.ts
+new file mode 100644
+index 0000000..97fce2e
+--- /dev/null
++++ b/src/host.test.ts
+@@ -0,0 +1,15 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++
++import { configuredHost } from "./host.js";
++
++test("server hosts default locally and reject accidental empty exposure", () => {
++  assert.equal(configuredHost(undefined, "HOST"), "localhost");
++  assert.equal(configuredHost("0.0.0.0", "HOST"), "0.0.0.0");
++  for (const value of ["", " ", " host "]) {
++    assert.throws(
++      () => configuredHost(value, "HOST"),
++      /HOST must be a non-empty, trimmed hostname/,
++    );
++  }
++});
+diff --git a/src/host.ts b/src/host.ts
+new file mode 100644
+index 0000000..dc4beee
+--- /dev/null
++++ b/src/host.ts
+@@ -0,0 +1,12 @@
++export function configuredHost(
++  value: string | undefined,
++  variableName: string,
++): string {
++  if (value === undefined) return "localhost";
++  if (!value || value.trim() !== value) {
++    throw new Error(
++      `${variableName} must be a non-empty, trimmed hostname.`,
++    );
++  }
++  return value;
++}
+diff --git a/src/html.test.ts b/src/html.test.ts
+new file mode 100644
+index 0000000..3a14028
+--- /dev/null
++++ b/src/html.test.ts
+@@ -0,0 +1,11 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++
++import { escapeHtml } from "./html.js";
++
++test("escapes branding before inserting it into HTML", () => {
++  assert.equal(
++    escapeHtml(`<Dog & "Cat's">`),
++    "&lt;Dog &amp; &quot;Cat&#39;s&quot;&gt;",
++  );
++});
+diff --git a/src/html.ts b/src/html.ts
+new file mode 100644
+index 0000000..cecd1bf
+--- /dev/null
++++ b/src/html.ts
+@@ -0,0 +1,11 @@
++const HTML_ENTITIES: Record<string, string> = {
++  "&": "&amp;",
++  "<": "&lt;",
++  ">": "&gt;",
++  '"': "&quot;",
++  "'": "&#39;",
++};
++
++export function escapeHtml(value: string): string {
++  return value.replace(/[&<>"']/g, (character) => HTML_ENTITIES[character]);
++}
+diff --git a/src/intake/api.test.ts b/src/intake/api.test.ts
+new file mode 100644
+index 0000000..a63af33
+--- /dev/null
++++ b/src/intake/api.test.ts
+@@ -0,0 +1,162 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++
++import { intakeApi } from "./api.js";
++
++test("normalization API returns only the raw-free projection", async () => {
++  const response = await intakeApi.request("/normalize", {
++    method: "POST",
++    headers: {
++      "content-type": "application/json",
++    },
++    body: JSON.stringify({
++      animalId: " API-001 ",
++      species: "canine",
++      intakeType: "stray",
++    }),
++  });
++
++  assert.equal(response.status, 200);
++  const body = await response.json();
++  assert.equal(body.ok, true);
++  assert.equal("rawRecord" in body.result, false);
++  assert.equal(body.result.normalizedRecord.animalId, "API-001");
++  assert.equal(body.result.normalizedRecord.species, "dog");
++  assert.equal(body.result.needsReview, false);
++});
++
++test("normalization API exposes review warnings without original values", async () => {
++  const response = await intakeApi.request("/normalize", {
++    method: "POST",
++    headers: {
++      "content-type": "application/json",
++    },
++    body: JSON.stringify({
++      species: "doggo",
++    }),
++  });
++
++  assert.equal(response.status, 200);
++  const body = await response.json();
++  assert.equal(body.result.needsReview, true);
++  assert.equal(body.result.warnings[0].field, "species");
++  assert.equal("value" in body.result.warnings[0], false);
++});
++
++test("normalization API rejects invalid JSON and non-object inputs", async () => {
++  for (const body of ["{broken", "[]", "null"]) {
++    const response = await intakeApi.request("/normalize", {
++      method: "POST",
++      headers: {
++        "content-type": "application/json",
++      },
++      body,
++    });
++
++    assert.equal(response.status, 400);
++    assert.deepEqual(await response.json(), {
++      ok: false,
++      error: "Intake record must be a JSON object.",
++    });
++  }
++});
++
++test("normalization API requires a JSON media type", async () => {
++  const response = await intakeApi.request("/normalize", {
++    method: "POST",
++    headers: {
++      "content-type": "text/plain",
++    },
++    body: JSON.stringify({ species: "dog" }),
++  });
++
++  assert.equal(response.status, 415);
++  assert.deepEqual(await response.json(), {
++    ok: false,
++    error: "Content-Type must be application/json.",
++  });
++});
++
++test("normalization API rejects excessive JSON nesting", async () => {
++  let nested: unknown = "value";
++  for (let depth = 0; depth < 65; depth += 1) nested = [nested];
++
++  const response = await intakeApi.request("/normalize", {
++    method: "POST",
++    headers: {
++      "content-type": "application/json",
++    },
++    body: JSON.stringify({ extension: nested }),
++  });
++
++  assert.equal(response.status, 400);
++  assert.deepEqual(await response.json(), {
++    ok: false,
++    error: "Intake record exceeds the 64-level nesting limit.",
++  });
++});
++
++test("normalization API rejects oversized fixed and streamed bodies", async () => {
++  const oversized = JSON.stringify({
++    extension: "x".repeat(100_001),
++  });
++  const fixed = await intakeApi.request("/normalize", {
++    method: "POST",
++    headers: {
++      "content-type": "application/json",
++      "content-length": String(Buffer.byteLength(oversized)),
++    },
++    body: oversized,
++  });
++  assert.equal(fixed.status, 413);
++
++  let cancelled = false;
++  const stream = new ReadableStream<Uint8Array>({
++    start(controller) {
++      controller.enqueue(new TextEncoder().encode('{"extension":"'));
++      controller.enqueue(new Uint8Array(100_001).fill(120));
++      controller.enqueue(new TextEncoder().encode('"}'));
++      controller.close();
++    },
++    cancel() {
++      cancelled = true;
++    },
++  });
++  const request = new Request("http://localhost/normalize", {
++    method: "POST",
++    headers: {
++      "content-type": "application/json",
++    },
++    body: stream,
++    duplex: "half",
++  } as RequestInit & { duplex: "half" });
++  const streamed = await intakeApi.fetch(request);
++  assert.equal(streamed.status, 413);
++  assert.equal(cancelled, true);
++
++  for (const response of [fixed, streamed]) {
++    assert.deepEqual(await response.json(), {
++      ok: false,
++      error: "Intake record exceeds the 100 KB demo limit.",
++    });
++  }
++});
++
++test("demo API lists the four synthetic intake examples", async () => {
++  const response = await intakeApi.request("/examples");
++
++  assert.equal(response.status, 200);
++  assert.equal(response.headers.get("cache-control"), "no-store");
++  const body = await response.json();
++  assert.deepEqual(
++    body.examples.map((example: { id: string }) => example.id),
++    ["emergency", "ambiguous", "owner-surrender", "stray"],
++  );
++  assert.equal(
++    body.examples.every(
++      (example: { draft: { _meta?: { synthetic?: boolean } } }) =>
++        example.draft._meta?.synthetic === true,
++    ),
++    true,
++  );
++});
+diff --git a/src/intake/api.ts b/src/intake/api.ts
+new file mode 100644
+index 0000000..7171628
+--- /dev/null
++++ b/src/intake/api.ts
+@@ -0,0 +1,157 @@
++import { readFileSync } from "node:fs";
++import { fileURLToPath } from "node:url";
++import { Hono } from "hono";
++
++import {
++  normalizeIntake,
++  toRawFreeProjection,
++  type IntakeDraft,
++} from "./normalize.js";
++
++const MAX_INTAKE_BYTES = 100_000;
++
++const EXAMPLE_FILES = [
++  {
++    id: "emergency",
++    label: "Emergency housing",
++    file: "emergency-intake.json",
++  },
++  {
++    id: "ambiguous",
++    label: "Ambiguous intake",
++    file: "malformed-ambiguous-intake.json",
++  },
++  {
++    id: "owner-surrender",
++    label: "Owner surrender",
++    file: "owner-surrender-intake.json",
++  },
++  {
++    id: "stray",
++    label: "Municipal stray",
++    file: "stray-intake.json",
++  },
++] as const;
++
++function exampleDraft(file: string): IntakeDraft {
++  const path = fileURLToPath(
++    new URL(`../../test-data/intake-records/${file}`, import.meta.url),
++  );
++  return JSON.parse(readFileSync(path, "utf8")) as IntakeDraft;
++}
++
++const EXAMPLES = EXAMPLE_FILES.map(({ id, label, file }) => ({
++  id,
++  label,
++  draft: exampleDraft(file),
++}));
++
++function acceptsJson(contentType: string | undefined): boolean {
++  const mediaType = contentType?.split(";", 1)[0].trim().toLowerCase();
++  return mediaType === "application/json"
++    || /^application\/[a-z0-9!#$&^_.+-]+\+json$/.test(mediaType ?? "");
++}
++
++async function limitedBody(
++  request: Request,
++): Promise<{ ok: true; text: string } | { ok: false }> {
++  const declaredLength = request.headers.get("content-length");
++  if (
++    declaredLength
++    && /^\d+$/.test(declaredLength)
++    && Number(declaredLength) > MAX_INTAKE_BYTES
++  ) {
++    return { ok: false };
++  }
++
++  const reader = request.body?.getReader();
++  if (!reader) return { ok: true, text: "" };
++  const decoder = new TextDecoder("utf-8", { fatal: true });
++  let bytes = 0;
++  let text = "";
++
++  try {
++    while (true) {
++      const { done, value } = await reader.read();
++      if (done) break;
++      bytes += value.byteLength;
++      if (bytes > MAX_INTAKE_BYTES) {
++        await reader.cancel();
++        return { ok: false };
++      }
++      text += decoder.decode(value, { stream: true });
++    }
++    text += decoder.decode();
++    return { ok: true, text };
++  } catch {
++    return { ok: true, text: "" };
++  }
++}
++
++function exceedsDepth(value: unknown, maximum: number): boolean {
++  const pending: Array<{ value: unknown; depth: number }> = [
++    { value, depth: 0 },
++  ];
++  while (pending.length > 0) {
++    const current = pending.pop();
++    if (!current || current.value === null || typeof current.value !== "object") {
++      continue;
++    }
++    if (current.depth > maximum) return true;
++    const children = Array.isArray(current.value)
++      ? current.value
++      : Object.values(current.value);
++    for (const child of children) {
++      pending.push({ value: child, depth: current.depth + 1 });
++    }
++  }
++  return false;
++}
++
++export const intakeApi = new Hono()
++  .get("/examples", (c) => {
++    c.header("Cache-Control", "no-store");
++    return c.json({
++      examples: EXAMPLES,
++    });
++  })
++  .post("/normalize", async (c) => {
++    c.header("Cache-Control", "no-store");
++    if (!acceptsJson(c.req.header("content-type"))) {
++      return c.json({
++        ok: false,
++        error: "Content-Type must be application/json.",
++      }, 415);
++    }
++    const body = await limitedBody(c.req.raw);
++    if (!body.ok) {
++      return c.json({
++        ok: false,
++        error: "Intake record exceeds the 100 KB demo limit.",
++      }, 413);
++    }
++
++    let draft: unknown;
++    try {
++      draft = JSON.parse(body.text);
++    } catch {
++      draft = null;
++    }
++    if (typeof draft !== "object" || draft === null || Array.isArray(draft)) {
++      return c.json({
++        ok: false,
++        error: "Intake record must be a JSON object.",
++      }, 400);
++    }
++    if (exceedsDepth(draft, 64)) {
++      return c.json({
++        ok: false,
++        error: "Intake record exceeds the 64-level nesting limit.",
++      }, 400);
++    }
++
++    return c.json({
++      ok: true,
++      result: toRawFreeProjection(normalizeIntake(draft as IntakeDraft)),
++    });
++  });
+diff --git a/src/intake/demo-server.test.ts b/src/intake/demo-server.test.ts
+new file mode 100644
+index 0000000..a00c602
+--- /dev/null
++++ b/src/intake/demo-server.test.ts
+@@ -0,0 +1,61 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++
++import {
++  intakeDemoApp,
++  intakeDemoHost,
++  intakeDemoPort,
++} from "./demo-server.js";
++
++test("credential-free demo server serves the page and intake API", async () => {
++  const page = await intakeDemoApp.request("/intake");
++  assert.equal(page.status, 200);
++  const html = await page.text();
++  assert.match(html, /Deterministic intake normalizer/);
++  assert.match(html, /Credential-free local demo/);
++  assert.doesNotMatch(html, />Operator console</);
++  assert.doesNotMatch(html, />Adoption form</);
++
++  const api = await intakeDemoApp.request("/api/intake/normalize", {
++    method: "POST",
++    headers: {
++      "content-type": "application/json",
++    },
++    body: JSON.stringify({
++      animalId: " STANDALONE-001 ",
++      species: "canine",
++    }),
++  });
++  assert.equal(api.status, 200);
++  const body = await api.json();
++  assert.equal(body.result.normalizedRecord.animalId, "STANDALONE-001");
++  assert.equal("rawRecord" in body.result, false);
++});
++
++test("credential-free demo isolates starter routes", async () => {
++  const root = await intakeDemoApp.request("/");
++  assert.equal(root.status, 302);
++  assert.equal(root.headers.get("location"), "/intake");
++  assert.equal((await intakeDemoApp.request("/apply")).status, 404);
++  assert.equal((await intakeDemoApp.request("/api/state")).status, 404);
++});
++
++test("credential-free demo uses a distinct validated port", () => {
++  assert.equal(intakeDemoPort(undefined), 4112);
++  assert.equal(intakeDemoPort("8080"), 8080);
++  for (const value of ["abc", "1.5", "0", "1023", "65536"]) {
++    assert.throws(
++      () => intakeDemoPort(value),
++      /INTAKE_DEMO_PORT must be an integer from 1024 through 65535/,
++    );
++  }
++});
++
++test("credential-free demo uses a configurable host with a local default", () => {
++  assert.equal(intakeDemoHost(undefined), "localhost");
++  assert.equal(intakeDemoHost("0.0.0.0"), "0.0.0.0");
++  assert.throws(
++    () => intakeDemoHost(" "),
++    /INTAKE_DEMO_HOST must be a non-empty, trimmed hostname/,
++  );
++});
+diff --git a/src/intake/demo-server.ts b/src/intake/demo-server.ts
+new file mode 100644
+index 0000000..e7cc2ff
+--- /dev/null
++++ b/src/intake/demo-server.ts
+@@ -0,0 +1,57 @@
++import { readFileSync } from "node:fs";
++import { resolve } from "node:path";
++import { pathToFileURL } from "node:url";
++import { serve } from "@hono/node-server";
++import { Hono } from "hono";
++
++import { ORG } from "../dogs.js";
++import { escapeHtml } from "../html.js";
++import { configuredHost } from "../host.js";
++import { intakeApi } from "./api.js";
++
++function intakePage() {
++  return readFileSync(
++    resolve(process.cwd(), "public", "intake.html"),
++    "utf8",
++  )
++    .replaceAll("{{ORG}}", escapeHtml(ORG))
++    .replace(
++      "<!--INTAKE_NAV-->",
++      '<nav aria-label="Demo mode"><span class="status ready">Credential-free local demo</span></nav>',
++    );
++}
++
++export function intakeDemoPort(value: string | undefined): number {
++  if (value === undefined) return 4112;
++  const port = Number(value);
++  if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
++    throw new Error(
++      "INTAKE_DEMO_PORT must be an integer from 1024 through 65535.",
++    );
++  }
++  return port;
++}
++
++export function intakeDemoHost(value: string | undefined): string {
++  return configuredHost(value, "INTAKE_DEMO_HOST");
++}
++
++export const intakeDemoApp = new Hono()
++  .get("/", (c) => c.redirect("/intake"))
++  .get("/intake", (c) => c.html(intakePage()))
++  .route("/api/intake", intakeApi);
++
++const invokedPath = process.argv[1]
++  ? pathToFileURL(resolve(process.argv[1])).href
++  : "";
++if (import.meta.url === invokedPath) {
++  const hostname = intakeDemoHost(process.env.INTAKE_DEMO_HOST);
++  const port = intakeDemoPort(process.env.INTAKE_DEMO_PORT);
++  serve({
++    fetch: intakeDemoApp.fetch,
++    hostname,
++    port,
++  }, (info) => {
++    console.log(`\n  Intake normalizer → http://${hostname}:${info.port}/intake\n`);
++  });
++}
+diff --git a/src/intake/invariants.test.ts b/src/intake/invariants.test.ts
+index 1e21fcb..1565e3e 100644
+--- a/src/intake/invariants.test.ts
++++ b/src/intake/invariants.test.ts
+@@ -74,3 +74,18 @@ test("invalid safe-text types are preserved and routed to review", () => {
+   ]);
+   assert.equal(result.needsReview, true);
+ });
++
++test("audit issue values are snapshots, not references to input objects", () => {
++  const draft = {
++    species: {
++      reported: "dog-ish",
++    },
++  };
++
++  const result = normalizeIntake(draft);
++  draft.species.reported = "mutated later";
++
++  assert.deepEqual(result.warnings[0].value, {
++    reported: "dog-ish",
++  });
++});
+diff --git a/src/intake/normalize.ts b/src/intake/normalize.ts
+index c8bb677..87a024f 100644
+--- a/src/intake/normalize.ts
++++ b/src/intake/normalize.ts
+@@ -210,6 +210,12 @@ function lookup<T>(
+   return values[lookupKey(input)];
+ }
+ 
++function isValidIsoDate(input: string): boolean {
++  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return false;
++  const parsed = new Date(`${input}T00:00:00.000Z`);
++  return Number.isFinite(parsed.getTime()) && parsed.toISOString().startsWith(input);
++}
++
+ function withProfileAliases<T>(
+   values: Record<string, ControlledValue<T>>,
+   aliases: Record<string, T> | undefined,
+@@ -255,6 +261,19 @@ function profileProvenance(
+   if (!profile.revision || profile.revision.trim() !== profile.revision) {
+     throw new Error("Normalization profile revision must be a non-empty, trimmed string.");
+   }
++  for (const [field, aliases] of Object.entries(profile.aliases ?? {})) {
++    if (!aliases) continue;
++    const canonicalAliases = new Set<string>();
++    for (const alias of Object.keys(aliases)) {
++      const canonicalAlias = lookupKey(alias);
++      if (canonicalAliases.has(canonicalAlias)) {
++        throw new Error(
++          `Normalization profile aliases collide after canonicalization: ${field}.${canonicalAlias}`,
++        );
++      }
++      canonicalAliases.add(canonicalAlias);
++    }
++  }
+ 
+   const definition = {
+     id: profile.id,
+@@ -288,6 +307,7 @@ export function normalizeIntake(
+   draft: IntakeDraft | NormalizedIntakeRecord,
+   profile?: NormalizationProfile,
+ ): NormalizationResult {
++  const appliedProfile = profileProvenance(profile);
+   const rawRecord = structuredClone(draft) as IntakeDraft;
+   const normalizedRecord: NormalizedIntakeRecord = {};
+   const changes: IntakeChange[] = [];
+@@ -433,12 +453,12 @@ export function normalizeIntake(
+     let normalizedDate: string | undefined;
+     let ruleId = "date.iso";
+ 
+-    if (typeof input === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+-      const parsed = new Date(`${input}T00:00:00.000Z`);
+-      if (parsed.toISOString().startsWith(input)) normalizedDate = input;
++    if (typeof input === "string" && isValidIsoDate(input)) {
++      normalizedDate = input;
+     } else if (
+       typeof input === "string"
+-      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(input)
++      && isValidIsoDate(input.slice(0, 10))
++      && /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(input)
+     ) {
+       const parsed = new Date(input);
+       if (Number.isFinite(parsed.getTime())) {
+@@ -477,11 +497,11 @@ export function normalizeIntake(
+     });
+   }
+ 
+-  return {
++  return structuredClone({
+     schemaVersion: INTAKE_SCHEMA_VERSION,
+     provenance: {
+       rulesetVersion: NORMALIZATION_RULESET_VERSION,
+-      profile: profileProvenance(profile),
++      profile: appliedProfile,
+     },
+     rawRecord,
+     normalizedRecord,
+@@ -489,7 +509,7 @@ export function normalizeIntake(
+     warnings,
+     errors,
+     needsReview: warnings.length > 0 || errors.length > 0,
+-  };
++  });
+ }
+ 
+ export function toRawFreeProjection(
+diff --git a/src/intake/page.test.ts b/src/intake/page.test.ts
+new file mode 100644
+index 0000000..6ad8518
+--- /dev/null
++++ b/src/intake/page.test.ts
+@@ -0,0 +1,34 @@
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import { join } from "node:path";
++import test from "node:test";
++
++test("intake demo page is wired to the raw-free API", () => {
++  const page = readFileSync(
++    join(process.cwd(), "public", "intake.html"),
++    "utf8",
++  );
++  const server = readFileSync(
++    join(process.cwd(), "src", "server.ts"),
++    "utf8",
++  );
++
++  assert.match(page, /id="source"/);
++  assert.match(page, /id="normalize"/);
++  assert.match(page, /fetch\("\/api\/intake\/examples"\)/);
++  assert.match(page, /fetch\("\/api\/intake\/normalize"/);
++  assert.match(page, /new AbortController\(\)/);
++  assert.match(page, /source\.addEventListener\("input", \(\) => invalidateResults\(\)\)/);
++  assert.match(page, /aria-invalid="false"/);
++  assert.match(page, /aria-busy="false"/);
++  assert.match(page, /Raw-free output can still contain identifiers and intake reason text/);
++  assert.doesNotMatch(page, /<dl id="record">\s*<div/);
++  assert.match(page, /Local prototype only: no authentication, persistence, or PetPoint connection/);
++  assert.match(page, /<!--INTAKE_NAV-->/);
++  assert.doesNotMatch(page, /ARCADE_API_KEY|ANTHROPIC_API_KEY/);
++  assert.match(server, /app\.get\("\/intake"/);
++  assert.match(server, /app\.route\("\/api\/intake", intakeApi\)/);
++  assert.match(server, />Operator console</);
++  assert.match(server, />Adoption form</);
++  assert.match(server, /hostname: HOST/);
++});
+diff --git a/src/intake/profile.test.ts b/src/intake/profile.test.ts
+index f00ddf3..ae358e8 100644
+--- a/src/intake/profile.test.ts
++++ b/src/intake/profile.test.ts
+@@ -131,3 +131,33 @@ test("profile digest changes with normalization-affecting content", () => {
+     second.provenance.profile?.digest,
+   );
+ });
++
++test("profiles reject aliases that collide after canonicalization", () => {
++  const firstOrder: NormalizationProfile = {
++    id: "rescue",
++    revision: "1",
++    aliases: {
++      species: {
++        canine_mix: "dog",
++        "canine-mix": "cat",
++      },
++    },
++  };
++  const reverseOrder: NormalizationProfile = {
++    id: "rescue",
++    revision: "1",
++    aliases: {
++      species: {
++        "canine-mix": "cat",
++        canine_mix: "dog",
++      },
++    },
++  };
++
++  for (const candidate of [firstOrder, reverseOrder]) {
++    assert.throws(
++      () => normalizeIntake({ species: "canine mix" }, candidate),
++      /aliases collide after canonicalization: species\.canine mix/,
++    );
++  }
++});
+diff --git a/src/intake/scalars.test.ts b/src/intake/scalars.test.ts
+index 71468e3..4945395 100644
+--- a/src/intake/scalars.test.ts
++++ b/src/intake/scalars.test.ts
+@@ -47,3 +47,17 @@ test("rejects invalid calendar dates", () => {
+     ],
+   );
+ });
++
++test("rejects timestamps outside RFC 3339 clock ranges", () => {
++  for (const intakeDate of [
++    "2026-08-22T24:00Z",
++    "2026-08-22T12:60Z",
++    "2026-08-22T12:30:60Z",
++    "2026-08-22T12:30+24:00",
++  ]) {
++    const result = normalizeIntake({ intakeDate });
++    assert.equal(result.normalizedRecord.intakeDate, undefined);
++    assert.equal(result.warnings[0].code, "invalid_date");
++    assert.equal(result.needsReview, true);
++  }
++});
+diff --git a/src/server.ts b/src/server.ts
+index 402476c..ff18a6e 100644
+--- a/src/server.ts
++++ b/src/server.ts
+@@ -15,7 +15,13 @@ import { serve } from "@hono/node-server";
+ import { Hono } from "hono";
+ import { streamSSE } from "hono/streaming";
+ 
+-import { PORT, POLL_MS, SLACK_CHANNEL, ARCADE_USER_ID } from "./config.js";
++import {
++  HOST,
++  PORT,
++  POLL_MS,
++  SLACK_CHANNEL,
++  ARCADE_USER_ID,
++} from "./config.js";
+ import {
+   awaitConnect,
+   fetchApplications,
+@@ -37,6 +43,8 @@ import { completeGatewayAuth } from "./oauth.js";
+ import { triage, type TriageEvent } from "./triage.js";
+ import { formToEmail, GENUINE_SAMPLES, SPAM_SAMPLES } from "./applications.js";
+ import { DOGS, ORG } from "./dogs.js";
++import { escapeHtml } from "./html.js";
++import { intakeApi } from "./intake/api.js";
+ 
+ type Feed =
+   | { type: "log"; level: "info" | "warn" | "error"; text: string }
+@@ -61,9 +69,20 @@ const app = new Hono();
+  *  Read per request rather than cached, so editing the HTML mid-workshop only
+  *  needs a browser refresh. */
+ const page = (file: string) =>
+-  readFileSync(join(process.cwd(), "public", file), "utf8").replaceAll("{{ORG}}", ORG);
++  readFileSync(join(process.cwd(), "public", file), "utf8").replaceAll(
++    "{{ORG}}",
++    escapeHtml(ORG),
++  );
++
++const intakePage = () =>
++  page("intake.html").replace(
++    "<!--INTAKE_NAV-->",
++    '<nav aria-label="Demo pages"><a href="/">Operator console</a><a href="/apply">Adoption form</a></nav>',
++  );
+ 
+ app.get("/", (c) => c.html(page("index.html")));
++app.get("/intake", (c) => c.html(intakePage()));
++app.route("/api/intake", intakeApi);
+ 
+ app.get("/api/state", async (c) => {
+   const providers = await providerState();
+@@ -283,9 +302,10 @@ async function poll() {
+   }
+ }
+ 
+-serve({ fetch: app.fetch, port: PORT }, async (info) => {
+-  console.log(`\n  Console → http://localhost:${info.port}`);
+-  console.log(`  Public form → http://localhost:${info.port}/apply\n`);
++serve({ fetch: app.fetch, hostname: HOST, port: PORT }, async (info) => {
++  console.log(`\n  Console → http://${HOST}:${info.port}`);
++  console.log(`  Public form → http://${HOST}:${info.port}/apply`);
++  console.log(`  Intake normalizer → http://${HOST}:${info.port}/intake\n`);
+   console.log(`  Acting as: ${ARCADE_USER_ID}`);
+   console.log(`  Slack channel: #${SLACK_CHANNEL}\n`);
+ 
+diff --git a/tsconfig.json b/tsconfig.json
+index 3ee87d3..c8b4c88 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -11,5 +11,10 @@
+     "resolveJsonModule": true,
+     "types": ["node"]
+   },
+-  "include": ["src/**/*.ts", "scripts/**/*.ts"]
++  "include": [
++    "src/**/*.ts",
++    "scripts/**/*.ts",
++    "e2e/**/*.ts",
++    "playwright.config.ts"
++  ]
+ }

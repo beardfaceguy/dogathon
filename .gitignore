@@ -15,4 +15,7 @@ node_modules/
 __pycache__/
 *.pyc
 
+playwright-report/
+test-results/
+
 .DS_Store

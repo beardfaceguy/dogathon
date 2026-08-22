@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { configuredHost } from "./host.js";
+
 function required(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing ${name} in .env — copy .env.example and fill it in.`);
@@ -35,6 +37,7 @@ export const GATEWAY_URL_DEFAULT = process.env.ARCADE_GATEWAY_URL
 export const GATEWAY_AUTH = (process.env.GATEWAY_AUTH ?? "oauth") as "oauth" | "headers";
 
 export const PORT = Number(process.env.PORT ?? 4111);
+export const HOST = configuredHost(process.env.HOST, "HOST");
 export const POLL_MS = Number(process.env.POLL_MS ?? 10_000);
 export const MODEL = process.env.MODEL ?? "anthropic/claude-sonnet-5";
 

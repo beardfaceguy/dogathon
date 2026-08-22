@@ -131,3 +131,33 @@ test("profile digest changes with normalization-affecting content", () => {
     second.provenance.profile?.digest,
   );
 });
+
+test("profiles reject aliases that collide after canonicalization", () => {
+  const firstOrder: NormalizationProfile = {
+    id: "rescue",
+    revision: "1",
+    aliases: {
+      species: {
+        canine_mix: "dog",
+        "canine-mix": "cat",
+      },
+    },
+  };
+  const reverseOrder: NormalizationProfile = {
+    id: "rescue",
+    revision: "1",
+    aliases: {
+      species: {
+        "canine-mix": "cat",
+        canine_mix: "dog",
+      },
+    },
+  };
+
+  for (const candidate of [firstOrder, reverseOrder]) {
+    assert.throws(
+      () => normalizeIntake({ species: "canine mix" }, candidate),
+      /aliases collide after canonicalization: species\.canine mix/,
+    );
+  }
+});

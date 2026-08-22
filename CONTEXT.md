@@ -20,6 +20,8 @@ _Updated: 2026-08-22_
 
 **Raw-free projection** — The restricted view returned by routine adapters. It omits `rawRecord` and original issue/change values, but it is not deidentified or authorization-free: normalized identifiers, reason text, transformed values, and messages may remain sensitive.
 
+**Intake demo** — A credential-free browser surface at `/intake` that submits synthetic or edited JSON to the deterministic core and presents normalized fields, rule provenance, and review warnings. It demonstrates the smart-layer boundary without claiming PetPoint connectivity.
+
 **Golden projection** — The stable, review-relevant subset of a normalization result checked into `test-data/expected/` to detect contract drift without duplicating raw input records.
 
 ## Sources
@@ -27,4 +29,4 @@ _Updated: 2026-08-22_
 - `Dogathon Opening Ceremony.pdf` identifies PetPoint as the rescue’s system of record and calls for a reliable interoperable platform or near-real-time smart layer.
 - Shelter Animals Count provides the intake and animal-level vocabulary used by the initial deterministic mappings.
 
-_Anchors: src/intake/normalize.ts::IntakeDraft, src/intake/normalize.ts::NormalizationProfile, src/intake/normalize.ts::NormalizationResult, src/intake/normalize.ts::normalizeIntake, src/intake/normalize.ts::toRawFreeProjection, src/intake/evaluate.ts::goldenProjection, src/intake/cli.ts::normalizeNdjson_
+_Anchors: src/intake/normalize.ts::IntakeDraft, src/intake/normalize.ts::NormalizationProfile, src/intake/normalize.ts::NormalizationResult, src/intake/normalize.ts::normalizeIntake, src/intake/normalize.ts::toRawFreeProjection, src/intake/api.ts::intakeApi, src/intake/demo-server.ts::intakeDemoApp, src/intake/evaluate.ts::goldenProjection, src/intake/cli.ts::normalizeNdjson_

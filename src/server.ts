@@ -15,7 +15,13 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 
-import { PORT, POLL_MS, SLACK_CHANNEL, ARCADE_USER_ID } from "./config.js";
+import {
+  HOST,
+  PORT,
+  POLL_MS,
+  SLACK_CHANNEL,
+  ARCADE_USER_ID,
+} from "./config.js";
 import {
   awaitConnect,
   fetchApplications,
@@ -37,6 +43,8 @@ import { completeGatewayAuth } from "./oauth.js";
 import { triage, type TriageEvent } from "./triage.js";
 import { formToEmail, GENUINE_SAMPLES, SPAM_SAMPLES } from "./applications.js";
 import { DOGS, ORG } from "./dogs.js";
+import { escapeHtml } from "./html.js";
+import { intakeApi } from "./intake/api.js";
 
 type Feed =
   | { type: "log"; level: "info" | "warn" | "error"; text: string }
@@ -61,9 +69,20 @@ const app = new Hono();
  *  Read per request rather than cached, so editing the HTML mid-workshop only
  *  needs a browser refresh. */
 const page = (file: string) =>
-  readFileSync(join(process.cwd(), "public", file), "utf8").replaceAll("{{ORG}}", ORG);
+  readFileSync(join(process.cwd(), "public", file), "utf8").replaceAll(
+    "{{ORG}}",
+    escapeHtml(ORG),
+  );
+
+const intakePage = () =>
+  page("intake.html").replace(
+    "<!--INTAKE_NAV-->",
+    '<nav aria-label="Demo pages"><a href="/">Operator console</a><a href="/apply">Adoption form</a></nav>',
+  );
 
 app.get("/", (c) => c.html(page("index.html")));
+app.get("/intake", (c) => c.html(intakePage()));
+app.route("/api/intake", intakeApi);
 
 app.get("/api/state", async (c) => {
   const providers = await providerState();
@@ -283,9 +302,10 @@ async function poll() {
   }
 }
 
-serve({ fetch: app.fetch, port: PORT }, async (info) => {
-  console.log(`\n  Console → http://localhost:${info.port}`);
-  console.log(`  Public form → http://localhost:${info.port}/apply\n`);
+serve({ fetch: app.fetch, hostname: HOST, port: PORT }, async (info) => {
+  console.log(`\n  Console → http://${HOST}:${info.port}`);
+  console.log(`  Public form → http://${HOST}:${info.port}/apply`);
+  console.log(`  Intake normalizer → http://${HOST}:${info.port}/intake\n`);
   console.log(`  Acting as: ${ARCADE_USER_ID}`);
   console.log(`  Slack channel: #${SLACK_CHANNEL}\n`);
 

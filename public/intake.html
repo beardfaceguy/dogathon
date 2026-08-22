@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Intake normalizer — {{ORG}}</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #11100f;
+      --panel: #1b1917;
+      --panel-2: #24211e;
+      --line: #3a3530;
+      --text: #f5efe5;
+      --muted: #b8aea1;
+      --accent: #ff7657;
+      --green: #7dcc9b;
+      --amber: #ffc56e;
+      --red: #ff8b7d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 12% 5%, rgba(255, 118, 87, 0.13), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header, main {
+      width: min(1400px, calc(100% - 32px));
+      margin-inline: auto;
+    }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 34px 0 24px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 4px 0 3px;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.05;
+      letter-spacing: -0.035em;
+    }
+    header p { margin: 0; color: var(--muted); }
+    nav { display: flex; flex-wrap: wrap; gap: 10px; }
+    nav a {
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 13px;
+    }
+    nav a:hover { border-color: var(--accent); }
+    .notice {
+      width: min(1400px, calc(100% - 32px));
+      margin: 0 auto 16px;
+      border-left: 4px solid var(--amber);
+      border-radius: 10px;
+      background: rgba(255, 197, 110, 0.1);
+      padding: 11px 14px;
+      color: #f4d7a8;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(27, 25, 23, 0.9);
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    select, button, textarea {
+      color: var(--text);
+      font: inherit;
+    }
+    select, button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel-2);
+      padding: 8px 12px;
+    }
+    button {
+      cursor: pointer;
+      font-weight: 750;
+    }
+    button.primary {
+      border-color: transparent;
+      background: var(--accent);
+      color: #1c100d;
+    }
+    button:disabled { cursor: wait; opacity: 0.65; }
+    .status {
+      margin-left: auto;
+      border-radius: 999px;
+      padding: 7px 12px;
+      color: var(--muted);
+      background: var(--panel-2);
+    }
+    .status.ready { color: var(--green); }
+    .status.review { color: var(--amber); }
+    .status.error { color: var(--red); }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.95fr) minmax(420px, 1.35fr);
+      gap: 16px;
+      padding-bottom: 36px;
+    }
+    .panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(27, 25, 23, 0.94);
+      overflow: hidden;
+    }
+    .panel h2 {
+      margin: 0;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 650px;
+      resize: vertical;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      padding: 16px;
+      color: #f3e7d8;
+      font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      tab-size: 2;
+    }
+    .source-help, .input-error {
+      margin: 0;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .input-error { color: var(--red); }
+    .results {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .result-block {
+      min-width: 0;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .result-block:nth-child(odd) { border-right: 1px solid var(--line); }
+    .result-block h3 {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    dl {
+      display: grid;
+      grid-template-columns: minmax(110px, 0.6fr) 1fr;
+      gap: 7px 12px;
+      margin: 0;
+    }
+    dt { color: var(--muted); }
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    ul {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    li {
+      border-left: 3px solid var(--line);
+      background: var(--panel-2);
+      padding: 8px 10px;
+      overflow-wrap: anywhere;
+    }
+    #changes li { border-color: var(--green); }
+    #warnings li { border-color: var(--amber); }
+    #errors li { border-color: var(--red); }
+    .empty { color: var(--muted); }
+    .provenance {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    @media (max-width: 900px) {
+      header { align-items: start; flex-direction: column; }
+      .workspace { grid-template-columns: 1fr; }
+      textarea { min-height: 420px; }
+    }
+    @media (max-width: 620px) {
+      .status { margin-left: 0; width: 100%; }
+      .results { grid-template-columns: 1fr; }
+      .result-block:nth-child(odd) { border-right: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="eyebrow">{{ORG}} · Smart intake layer</div>
+      <h1>Deterministic intake normalizer</h1>
+      <p>Clean what is certain. Escalate what is ambiguous. No model required.</p>
+      <p>Local prototype only: no authentication, persistence, or PetPoint connection.</p>
+    </div>
+    <!--INTAKE_NAV-->
+  </header>
+
+  <aside class="notice">
+    Use synthetic data only. This local prototype has no authentication or persistence.
+    Raw-free output can still contain identifiers and intake reason text; it is restricted,
+    not deidentified or authorization-free.
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <label>
+        Synthetic example
+        <select id="example"></select>
+      </label>
+      <button type="button" id="reload">Reload example</button>
+      <button type="button" class="primary" id="normalize">Normalize intake</button>
+      <div class="status" id="status" role="status">Loading examples…</div>
+    </div>
+
+    <div class="workspace">
+      <section class="panel">
+        <h2>Source intake JSON</h2>
+        <p class="source-help" id="source-guidance">
+          Editing the source invalidates any displayed result. Run normalization again after changes.
+        </p>
+        <p class="input-error" id="source-error" role="alert" hidden></p>
+        <textarea
+          id="source"
+          spellcheck="false"
+          aria-label="Source intake JSON"
+          aria-describedby="source-guidance source-error"
+          aria-invalid="false"
+        ></textarea>
+      </section>
+
+      <section class="panel" id="result-panel" aria-busy="false">
+        <h2>Raw-free normalization result</h2>
+        <div class="results">
+          <section class="result-block">
+            <h3>Normalized record</h3>
+            <div class="empty" id="record-empty">Run normalization to see fields.</div>
+            <dl id="record"></dl>
+          </section>
+          <section class="result-block">
+            <h3>Applied rules</h3>
+            <ul id="changes"><li class="empty">No rules applied yet.</li></ul>
+          </section>
+          <section class="result-block">
+            <h3>Review warnings</h3>
+            <ul id="warnings"><li class="empty">No warnings yet.</li></ul>
+          </section>
+          <section class="result-block">
+            <h3>Validation errors</h3>
+            <ul id="errors"><li class="empty">No errors yet.</li></ul>
+          </section>
+          <div class="result-block provenance" id="provenance">No result provenance yet.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const exampleSelect = document.querySelector("#example");
+    const source = document.querySelector("#source");
+    const normalizeButton = document.querySelector("#normalize");
+    const status = document.querySelector("#status");
+    const resultPanel = document.querySelector("#result-panel");
+    const sourceError = document.querySelector("#source-error");
+    const recordEmpty = document.querySelector("#record-empty");
+    const examples = new Map();
+    let activeController = null;
+    let sourceVersion = 0;
+
+    function setStatus(text, state = "") {
+      status.textContent = text;
+      status.className = `status ${state}`.trim();
+      status.setAttribute("role", state === "error" ? "alert" : "status");
+    }
+
+    function setInputError(message = "") {
+      source.setAttribute("aria-invalid", message ? "true" : "false");
+      sourceError.textContent = message;
+      sourceError.hidden = !message;
+    }
+
+    function emptyList(element, message) {
+      element.replaceChildren();
+      const item = document.createElement("li");
+      item.className = "empty";
+      item.textContent = message;
+      element.append(item);
+    }
+
+    function clearResults(message = "Run normalization to see fields.") {
+      document.querySelector("#record").replaceChildren();
+      recordEmpty.textContent = message;
+      recordEmpty.hidden = false;
+      emptyList(document.querySelector("#changes"), "No deterministic changes displayed.");
+      emptyList(document.querySelector("#warnings"), "No review warnings displayed.");
+      emptyList(document.querySelector("#errors"), "No profile validation results displayed.");
+      document.querySelector("#provenance").textContent = "No result provenance displayed.";
+    }
+
+    function invalidateResults(message = "Source changed — run normalization again.") {
+      sourceVersion += 1;
+      activeController?.abort();
+      activeController = null;
+      normalizeButton.disabled = false;
+      resultPanel.setAttribute("aria-busy", "false");
+      setInputError();
+      clearResults("Result cleared because the source changed.");
+      setStatus(message);
+    }
+
+    function renderRecord(record) {
+      const target = document.querySelector("#record");
+      target.replaceChildren();
+      const entries = Object.entries(record);
+      if (entries.length === 0) {
+        recordEmpty.textContent =
+          "No approved core fields were present. No organization profile is applied in this demo.";
+        recordEmpty.hidden = false;
+        return;
+      }
+      recordEmpty.hidden = true;
+      for (const [field, value] of entries) {
+        const term = document.createElement("dt");
+        term.textContent = field;
+        const definition = document.createElement("dd");
+        definition.textContent = typeof value === "string" ? value : JSON.stringify(value);
+        target.append(term, definition);
+      }
+    }
+
+    function renderChanges(changes) {
+      const target = document.querySelector("#changes");
+      if (changes.length === 0) {
+        emptyList(target, "No deterministic changes were applicable.");
+        return;
+      }
+      target.replaceChildren();
+      for (const change of changes) {
+        const item = document.createElement("li");
+        item.textContent = `${change.field} → ${JSON.stringify(change.to)} · ${change.ruleId}`;
+        target.append(item);
+      }
+    }
+
+    function renderIssues(id, issues, emptyMessage) {
+      const target = document.querySelector(id);
+      if (issues.length === 0) {
+        emptyList(target, emptyMessage);
+        return;
+      }
+      target.replaceChildren();
+      for (const issue of issues) {
+        const item = document.createElement("li");
+        item.textContent = `${issue.field}: ${issue.message} (${issue.code})`;
+        target.append(item);
+      }
+    }
+
+    function renderResult(result) {
+      renderRecord(result.normalizedRecord);
+      renderChanges(result.changes);
+      renderIssues("#warnings", result.warnings, "No human review warnings.");
+      renderIssues(
+        "#errors",
+        result.errors,
+        result.provenance.profile
+          ? "No profile validation errors."
+          : "No organization profile is applied; required fields were not evaluated.",
+      );
+      document.querySelector("#provenance").textContent =
+        `schema ${result.schemaVersion} · rules ${result.provenance.rulesetVersion}` +
+        (result.provenance.profile
+          ? ` · profile ${result.provenance.profile.id}@${result.provenance.profile.revision}`
+          : " · no organization profile");
+      if (Object.keys(result.normalizedRecord).length === 0) {
+        setStatus("No approved core fields found", "review");
+      } else {
+        setStatus(
+          result.needsReview ? "Human review required" : "Normalization complete",
+          result.needsReview ? "review" : "ready",
+        );
+      }
+    }
+
+    function loadSelectedExample() {
+      const draft = examples.get(exampleSelect.value);
+      if (!draft) return;
+      invalidateResults("Example loaded — run normalization.");
+      source.value = JSON.stringify(draft, null, 2);
+    }
+
+    document.querySelector("#reload").addEventListener("click", loadSelectedExample);
+    exampleSelect.addEventListener("change", loadSelectedExample);
+    source.addEventListener("input", () => invalidateResults());
+
+    normalizeButton.addEventListener("click", async () => {
+      activeController?.abort();
+      const controller = new AbortController();
+      activeController = controller;
+      const requestVersion = ++sourceVersion;
+      const submittedSource = source.value;
+      let timedOut = false;
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, 10_000);
+
+      normalizeButton.disabled = true;
+      resultPanel.setAttribute("aria-busy", "true");
+      setInputError();
+      clearResults("Normalization in progress…");
+      setStatus("Normalizing…");
+      try {
+        try {
+          JSON.parse(submittedSource);
+        } catch {
+          setInputError("Source must be valid JSON.");
+          throw new Error("Fix the source JSON and try again.");
+        }
+        const response = await fetch("/api/intake/normalize", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: submittedSource,
+          signal: controller.signal,
+        });
+        const body = await response.json();
+        if (requestVersion !== sourceVersion || source.value !== submittedSource) return;
+        if (!response.ok || !body.ok) throw new Error(body.error ?? "Normalization failed.");
+        renderResult(body.result);
+      } catch (error) {
+        if (requestVersion !== sourceVersion) return;
+        clearResults("No current result.");
+        setStatus(
+          timedOut
+            ? "Normalization timed out. Try again."
+            : error instanceof Error
+              ? error.message
+              : String(error),
+          "error",
+        );
+      } finally {
+        clearTimeout(timeout);
+        if (requestVersion === sourceVersion) {
+          activeController = null;
+          normalizeButton.disabled = false;
+          resultPanel.setAttribute("aria-busy", "false");
+        }
+      }
+    });
+
+    fetch("/api/intake/examples")
+      .then((response) => {
+        if (!response.ok) throw new Error("Could not load examples.");
+        return response.json();
+      })
+      .then(({ examples: loadedExamples }) => {
+        for (const example of loadedExamples) {
+          examples.set(example.id, example.draft);
+          const option = document.createElement("option");
+          option.value = example.id;
+          option.textContent = example.label;
+          exampleSelect.append(option);
+        }
+        exampleSelect.value = "stray";
+        loadSelectedExample();
+      })
+      .catch((error) => setStatus(error.message, "error"));
+  </script>
+</body>
+</html>

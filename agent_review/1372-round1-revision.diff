@@ -1,0 +1,122 @@
+diff --git a/src/intake/api.test.ts b/src/intake/api.test.ts
+index a63af33..1eca5b2 100644
+--- a/src/intake/api.test.ts
++++ b/src/intake/api.test.ts
+@@ -134,7 +134,29 @@ test("normalization API rejects oversized fixed and streamed bodies", async () =
+   assert.equal(streamed.status, 413);
+   assert.equal(cancelled, true);
+ 
+-  for (const response of [fixed, streamed]) {
++  let declaredCancelled = false;
++  const declaredStream = new ReadableStream<Uint8Array>({
++    start(controller) {
++      controller.enqueue(new TextEncoder().encode("{}"));
++    },
++    cancel() {
++      declaredCancelled = true;
++    },
++  });
++  const declaredRequest = new Request("http://localhost/normalize", {
++    method: "POST",
++    headers: {
++      "content-type": "application/json",
++      "content-length": "100001",
++    },
++    body: declaredStream,
++    duplex: "half",
++  } as RequestInit & { duplex: "half" });
++  const declared = await intakeApi.fetch(declaredRequest);
++  assert.equal(declared.status, 413);
++  assert.equal(declaredCancelled, true);
++
++  for (const response of [fixed, streamed, declared]) {
+     assert.deepEqual(await response.json(), {
+       ok: false,
+       error: "Intake record exceeds the 100 KB demo limit.",
+diff --git a/src/intake/api.ts b/src/intake/api.ts
+index 7171628..92c3a79 100644
+--- a/src/intake/api.ts
++++ b/src/intake/api.ts
+@@ -61,6 +61,7 @@ async function limitedBody(
+     && /^\d+$/.test(declaredLength)
+     && Number(declaredLength) > MAX_INTAKE_BYTES
+   ) {
++    await request.body?.cancel();
+     return { ok: false };
+   }
+ 
+diff --git a/src/intake/normalize.ts b/src/intake/normalize.ts
+index 87a024f..81aa882 100644
+--- a/src/intake/normalize.ts
++++ b/src/intake/normalize.ts
+@@ -5,7 +5,7 @@
+ import { createHash } from "node:crypto";
+ 
+ export const INTAKE_SCHEMA_VERSION = "0.1.0" as const;
+-export const NORMALIZATION_RULESET_VERSION = "0.1.0" as const;
++export const NORMALIZATION_RULESET_VERSION = "0.2.0" as const;
+ 
+ export type JsonPrimitive = string | number | boolean | null;
+ export type JsonValue =
+@@ -481,7 +481,8 @@ export function normalizeIntake(
+       warnings.push({
+         field: "intakeDate",
+         code: "invalid_date",
+-        message: "Intake date must be an ISO date or RFC 3339 timestamp.",
++        message:
++          "Intake date must be an ISO date or supported RFC 3339 timestamp with seconds 00 through 59.",
+         value: input,
+       });
+     }
+diff --git a/test-data/expected/emergency-intake.normalized.json b/test-data/expected/emergency-intake.normalized.json
+index 4b26dac..fd091fe 100644
+--- a/test-data/expected/emergency-intake.normalized.json
++++ b/test-data/expected/emergency-intake.normalized.json
+@@ -1,7 +1,7 @@
+ {
+   "schemaVersion": "0.1.0",
+   "provenance": {
+-    "rulesetVersion": "0.1.0",
++    "rulesetVersion": "0.2.0",
+     "profile": null
+   },
+   "normalizedRecord": {
+diff --git a/test-data/expected/malformed-ambiguous-intake.normalized.json b/test-data/expected/malformed-ambiguous-intake.normalized.json
+index 31451a2..aaffbf4 100644
+--- a/test-data/expected/malformed-ambiguous-intake.normalized.json
++++ b/test-data/expected/malformed-ambiguous-intake.normalized.json
+@@ -1,7 +1,7 @@
+ {
+   "schemaVersion": "0.1.0",
+   "provenance": {
+-    "rulesetVersion": "0.1.0",
++    "rulesetVersion": "0.2.0",
+     "profile": null
+   },
+   "normalizedRecord": {
+diff --git a/test-data/expected/owner-surrender-intake.normalized.json b/test-data/expected/owner-surrender-intake.normalized.json
+index 9dd57f1..0688a03 100644
+--- a/test-data/expected/owner-surrender-intake.normalized.json
++++ b/test-data/expected/owner-surrender-intake.normalized.json
+@@ -1,7 +1,7 @@
+ {
+   "schemaVersion": "0.1.0",
+   "provenance": {
+-    "rulesetVersion": "0.1.0",
++    "rulesetVersion": "0.2.0",
+     "profile": null
+   },
+   "normalizedRecord": {
+diff --git a/test-data/expected/stray-intake.normalized.json b/test-data/expected/stray-intake.normalized.json
+index 5c17fbd..ab7bc74 100644
+--- a/test-data/expected/stray-intake.normalized.json
++++ b/test-data/expected/stray-intake.normalized.json
+@@ -1,7 +1,7 @@
+ {
+   "schemaVersion": "0.1.0",
+   "provenance": {
+-    "rulesetVersion": "0.1.0",
++    "rulesetVersion": "0.2.0",
+     "profile": null
+   },
+   "normalizedRecord": {

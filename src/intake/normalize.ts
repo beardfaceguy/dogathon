@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 
 export const INTAKE_SCHEMA_VERSION = "0.1.0" as const;
-export const NORMALIZATION_RULESET_VERSION = "0.1.0" as const;
+export const NORMALIZATION_RULESET_VERSION = "0.2.0" as const;
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue =
@@ -210,6 +210,12 @@ function lookup<T>(
   return values[lookupKey(input)];
 }
 
+function isValidIsoDate(input: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return false;
+  const parsed = new Date(`${input}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().startsWith(input);
+}
+
 function withProfileAliases<T>(
   values: Record<string, ControlledValue<T>>,
   aliases: Record<string, T> | undefined,
@@ -255,6 +261,19 @@ function profileProvenance(
   if (!profile.revision || profile.revision.trim() !== profile.revision) {
     throw new Error("Normalization profile revision must be a non-empty, trimmed string.");
   }
+  for (const [field, aliases] of Object.entries(profile.aliases ?? {})) {
+    if (!aliases) continue;
+    const canonicalAliases = new Set<string>();
+    for (const alias of Object.keys(aliases)) {
+      const canonicalAlias = lookupKey(alias);
+      if (canonicalAliases.has(canonicalAlias)) {
+        throw new Error(
+          `Normalization profile aliases collide after canonicalization: ${field}.${canonicalAlias}`,
+        );
+      }
+      canonicalAliases.add(canonicalAlias);
+    }
+  }
 
   const definition = {
     id: profile.id,
@@ -288,6 +307,7 @@ export function normalizeIntake(
   draft: IntakeDraft | NormalizedIntakeRecord,
   profile?: NormalizationProfile,
 ): NormalizationResult {
+  const appliedProfile = profileProvenance(profile);
   const rawRecord = structuredClone(draft) as IntakeDraft;
   const normalizedRecord: NormalizedIntakeRecord = {};
   const changes: IntakeChange[] = [];
@@ -433,12 +453,12 @@ export function normalizeIntake(
     let normalizedDate: string | undefined;
     let ruleId = "date.iso";
 
-    if (typeof input === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
-      const parsed = new Date(`${input}T00:00:00.000Z`);
-      if (parsed.toISOString().startsWith(input)) normalizedDate = input;
+    if (typeof input === "string" && isValidIsoDate(input)) {
+      normalizedDate = input;
     } else if (
       typeof input === "string"
-      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(input)
+      && isValidIsoDate(input.slice(0, 10))
+      && /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(input)
     ) {
       const parsed = new Date(input);
       if (Number.isFinite(parsed.getTime())) {
@@ -461,7 +481,8 @@ export function normalizeIntake(
       warnings.push({
         field: "intakeDate",
         code: "invalid_date",
-        message: "Intake date must be an ISO date or RFC 3339 timestamp.",
+        message:
+          "Intake date must be an ISO date or supported RFC 3339 timestamp with seconds 00 through 59.",
         value: input,
       });
     }
@@ -477,11 +498,11 @@ export function normalizeIntake(
     });
   }
 
-  return {
+  return structuredClone({
     schemaVersion: INTAKE_SCHEMA_VERSION,
     provenance: {
       rulesetVersion: NORMALIZATION_RULESET_VERSION,
-      profile: profileProvenance(profile),
+      profile: appliedProfile,
     },
     rawRecord,
     normalizedRecord,
@@ -489,7 +510,7 @@ export function normalizeIntake(
     warnings,
     errors,
     needsReview: warnings.length > 0 || errors.length > 0,
-  };
+  });
 }
 
 export function toRawFreeProjection(
