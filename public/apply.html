@@ -156,6 +156,7 @@
     padding: 0 1px; margin: 0 2px; cursor: pointer;
   }
   .prefill button:hover { background: rgba(29, 107, 80, 0.07); }
+  .prefill #fill-count { display: block; margin-top: 4px; color: #b6b0a7; }
 
   .thanks {
     margin-top: 34px;
@@ -250,6 +251,7 @@
       prefill &mdash;
       <button type="button" data-fill="genuine">genuine application</button>·
       <button type="button" data-fill="spam">form spam</button>
+      <span id="fill-count"></span>
     </div>
   </section>
 
@@ -265,44 +267,35 @@
 const $ = (id) => document.getElementById(id);
 const form = $("form");
 
-const SAMPLES = {
-  genuine: {
-    name: "Priya Raghunathan",
-    email: "priya.raghunathan@example.com",
-    phone: "(415) 555-0134",
-    dog: "Biscuit",
-    home: "House I own",
-    yard: "Fenced yard",
-    household: "Two kids, 6 and 9. No other pets right now.",
-    message:
-      "We lost our beagle Rusty last spring and the house has been far too quiet. " +
-      "The yard is fully fenced, six feet, and I work from home three days a week. " +
-      "Biscuit's tennis ball habit sounds like a perfect match for our nine-year-old, " +
-      "who has been campaigning hard. We'd want a slow introduction over a couple of weekends.",
-  },
-  spam: {
-    name: "Digital Growth Partners",
-    email: "outreach@digitalgrowthpartners.biz",
-    phone: "(000) 000-0000",
-    dog: "Biscuit",
-    home: "Other",
-    yard: "No yard",
-    household: "N/A",
-    message:
-      "Hi there! I was reviewing your website and noticed several CRITICAL SEO issues " +
-      "holding back your rankings. Our team can get you to page 1 of Google for " +
-      "'dog adoption near me' in 30 days, guaranteed. We work with 200+ nonprofits. " +
-      "Reply STOP to opt out. Ask about our backlink packages and AI content engine.",
-  },
+/** Injected by the server from src/applications.ts, so the form's samples and
+ *  the console's fallback button read the same list. */
+const SAMPLES = "<!--SAMPLES-->";
+
+// Cycle rather than repeat, so the flow can be shown several times without
+// editing fields by hand. Starts at a random offset so back-to-back runs of the
+// talk don't always open on the same applicant.
+const cursor = {
+  genuine: Math.floor(Math.random() * (SAMPLES.genuine?.length ?? 1)),
+  spam: Math.floor(Math.random() * (SAMPLES.spam?.length ?? 1)),
 };
 
 for (const b of document.querySelectorAll("[data-fill]")) {
   b.addEventListener("click", () => {
-    const s = SAMPLES[b.dataset.fill];
-    for (const [k, v] of Object.entries(s)) {
+    const kind = b.dataset.fill;
+    const pool = SAMPLES[kind] ?? [];
+    if (!pool.length) return;
+
+    const i = cursor[kind] % pool.length;
+    cursor[kind] = i + 1;
+
+    for (const [k, v] of Object.entries(pool[i])) {
       const el = form.elements[k];
       if (el) el.value = v;
     }
+
+    $("fill-count").textContent = `${kind} ${i + 1} of ${pool.length} — ${pool[i].name}`;
+    $("note").className = "note";
+    $("note").textContent = "We read every one. No auto-replies.";
     form.elements.name.focus();
   });
 }
@@ -346,6 +339,7 @@ $("again").addEventListener("click", () => {
   $("submit").disabled = false;
   $("note").className = "note";
   $("note").textContent = "We read every one. No auto-replies.";
+  $("fill-count").textContent = "";
   $("pane-thanks").hidden = true;
   $("pane-form").hidden = false;
 });

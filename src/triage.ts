@@ -51,8 +51,12 @@ If it IS a real application, handle it end to end:
 3. Post a message to the Slack channel "${SLACK_CHANNEL}" so a volunteer can
    claim this applicant. Name the applicant and the dog, and say when the
    meet-and-greet is.
-4. Book a 30-minute calendar event titled "Meet & greet: <applicant> + <dog>"
-   on the next weekday at 10:00 AM Pacific. Use ISO 8601 datetimes.
+4. Book a 30-minute calendar event titled "Meet & greet: <applicant> + <dog>".
+   If the applicant said when they are available — a named day, "weekends only",
+   "mornings", "after 6pm", "mid-week" — pick the soonest slot that actually
+   honours it. If they said nothing, use the next weekday at 10:00 AM. Business
+   hours only, 9:00 AM to 6:00 PM Pacific, and never in the past.
+   Use ISO 8601 datetimes.
 5. DRAFT a warm, specific reply to the applicant. Reference something concrete
    they wrote. Confirm the meet-and-greet time. Sign it "${ORG}".
 

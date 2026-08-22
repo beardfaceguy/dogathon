@@ -69,6 +69,14 @@ Two things worth trying:
   pipeline, and the agent refuses it and takes *zero* actions. The Gmail query is
   plumbing; the judgment is the agent's.
 
+The two prefill links under the form cycle through 10 genuine applications and 7
+pieces of spam, defined in `src/applications.ts`. They vary by dog, living
+situation and stated availability, so the agent books a different slot each time
+— and one of them says nothing about availability at all, so it has to fall back
+to a default. Two of the spam entries (a wholesale supplier and a pet
+photographer) talk fluently about dogs and rescues on purpose: keyword matching
+would pass them.
+
 ## How it's put together
 
 | File | Job |

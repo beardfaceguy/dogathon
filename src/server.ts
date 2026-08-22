@@ -35,12 +35,7 @@ import {
 } from "./gateway.js";
 import { completeGatewayAuth } from "./oauth.js";
 import { triage, type TriageEvent } from "./triage.js";
-import {
-  DEMO_APPLICATIONS,
-  formToEmail,
-  SPAM_APPLICATIONS,
-  subjectFor,
-} from "./applications.js";
+import { formToEmail, GENUINE_SAMPLES, SPAM_SAMPLES } from "./applications.js";
 import { DOGS, ORG } from "./dogs.js";
 
 type Feed =
@@ -184,11 +179,17 @@ app.get("/oauth/callback", async (c) => {
  *  The dog list is injected from dogs.ts rather than hardcoded in the HTML, so
  *  the roster still has exactly one source of truth. */
 app.get("/apply", (c) => {
-  const html = page("apply.html");
   const options = DOGS.map(
     (d) => `<option value="${d.name}">${d.name} — ${d.breed}, ${d.age}</option>`,
   ).join("");
-  return c.html(html.replace("<!--DOGS-->", options));
+  // Samples are injected rather than duplicated in the HTML, so the form's
+  // prefill and the console's fallback button read the same list.
+  const samples = JSON.stringify({ genuine: GENUINE_SAMPLES, spam: SPAM_SAMPLES });
+  return c.html(
+    page("apply.html")
+      .replace("<!--DOGS-->", options)
+      .replace('"<!--SAMPLES-->"', samples),
+  );
 });
 
 /** Accept a submission and email it to the intake inbox.
@@ -214,11 +215,15 @@ app.post("/apply", async (c) => {
 app.post("/api/demo-email", async (c) => {
   const params = new URL(c.req.url).searchParams;
   const spam = params.get("kind") === "spam";
-  const pool = spam ? SPAM_APPLICATIONS : DEMO_APPLICATIONS;
-  const application = pool[Number(params.get("i") ?? 0) % pool.length];
+  const pool = spam ? SPAM_SAMPLES : GENUINE_SAMPLES;
+  const sample = pool[Number(params.get("i") ?? 0) % pool.length];
   try {
-    await sendDemoEmail({ subject: subjectFor(application), body: application.body });
-    log(spam ? "Form spam sent." : `Application sent: ${application.name} → ${application.dog}`);
+    await sendDemoEmail(formToEmail(sample));
+    log(
+      spam
+        ? `Form spam sent: ${sample.name}`
+        : `Application sent: ${sample.name} → ${sample.dog}`,
+    );
     return c.json({ ok: true });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
