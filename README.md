@@ -27,242 +27,87 @@ envelope while exposing a restricted raw-free projection to routine consumers.
 intake JSON → deterministic rules → raw-free comparison → human review
 ```
 
+## Run locally
+
+```bash
+npm install
+npx playwright install chromium
+npm run demo:intake
+```
+
+Open **http://localhost:4112/intake**.
+
+The demo defaults to `localhost`. Use `INTAKE_DEMO_HOST` and
+`INTAKE_DEMO_PORT` to override it. External binding exposes an unauthenticated
+prototype and should only be used on a trusted network with synthetic data.
+
+## Deterministic core
+
+The v0.1 normalized boundary contains eight fields:
+
+- `animalId`
+- `intakeDate`
+- `intakeType`
+- `intakeReasonText`
+- `species`
+- `ageGroup`
+- `sex`
+- `alteredStatus`
+
+Known aliases, whitespace, and timestamps are normalized through explicit
+rules. Unknown or ambiguous values remain visible and set `needsReview`
+instead of being guessed. Organization profiles can add aliases and required
+fields without overriding the global vocabulary.
+
+The internal result retains the full source record for audit and is sensitive.
+Browser and CLI consumers receive a raw-free restricted projection that omits
+the source record and original issue/change values. It is not deidentified or
+authorization-free.
+
+## Commands
+
+```bash
+npm run demo:intake
+npm run normalize:intake -- test-data/intake-records/stray-intake.json
+npm run evaluate:intake
+npm run check
+```
+
+## Project structure
+
+| Path | Purpose |
+| --- | --- |
+| `src/intake/normalize.ts` | Deterministic normalization and provenance |
+| `src/intake/api.ts` | Bounded raw-free HTTP API |
+| `src/intake/demo-server.ts` | Credential-free demo server |
+| `public/intake.html` | Interactive comparison UI |
+| `schemas/` | Versioned JSON contracts |
+| `test-data/` | Public form references, synthetic fixtures, and golden outputs |
+| `e2e/` | Playwright browser regressions |
+| `agent_review/` | Formal agent-to-agent review logs and exact diffs |
+
 ## Development quality
 
 - 51 deterministic Node unit and regression tests
 - 10 Playwright Chromium tests covering rendering, retries, stale requests, timeouts, and XSS safety
 - Biome linting and strict TypeScript checks
 - Pre-commit and protected GitHub CI gates
-- A custom formal agent-to-agent review protocol with stable blocker IDs,
-  verified revision rounds, and committed logs under `agent_review/`
+- A custom formal agent-to-agent review protocol with stable blocker IDs and verified revision rounds
 
-## Arcade starter foundation (optional)
+`npm test` discovers every repository-wide `*.test.ts` and `*.spec.ts`. The
+pre-commit hook and GitHub Actions run the same complete quality gate.
 
-An **ambient agent**: nobody prompts it. A dog rescue's adoption form emails an
-intake mailbox, a local server notices, and an agent handles the application end
-to end — appends a row to a Google Sheet, posts to Slack, books a meet-and-greet,
-and drafts a reply for a human to send.
+## Current limitations
 
-Every tool call goes through an [Arcade](https://arcade.dev) MCP gateway, so the
-agent acts **as you**, with your Google and Slack grants, and never holds a
-credential.
+- Synthetic demo data only
+- No persistence or authentication
+- No PetPoint integration
+- Human overrides and record finalization are not implemented
+- LLM assistance is intentionally deferred behind deterministic rules and human review
 
-```
-public form  ──▶  Gmail  ──▶  poller (Arcade SDK)  ──▶  agent (MCP gateway)  ──┬─▶ Google Sheet
- /apply           inbox        every 10s                  Mastra + Claude      ├─▶ Slack
-                                                                               ├─▶ Calendar
-                                                                               └─▶ Gmail draft
-```
+## Foundation
 
-## Setup
-
-You need an Arcade account, a Google account you don't mind filling with fake dog
-adoption data, and access to a Slack workspace.
-
-```bash
-npm install
-cp .env.example .env      # fill in ARCADE_API_KEY, ARCADE_USER_ID, ANTHROPIC_API_KEY
-npm run seed              # builds the adopter Sheet in YOUR Google account
-npm start
-```
-
-Then create an MCP gateway at [app.arcade.dev](https://app.arcade.dev) with these
-eight tools, and set its auth to **Members of this Project (Arcade Auth)**:
-
-| Toolkit | Tools |
-| --- | --- |
-| Gmail | `SearchEmailsByQuery`, `WriteDraftReplyEmail`, `SendEmail` |
-| Google Sheets | `SearchSpreadsheets`, `InspectSpreadsheet`, `CreateOrEditSpreadsheet` |
-| Google Calendar | `CreateEvent` |
-| Slack | `SendMessage` |
-
-Keep the toolset narrow. A model given four hundred tools picks worse than a
-model given eight.
-
-## Running it
-
-Open **http://localhost:4111**. The UI reveals itself in three steps, because
-each one has to succeed before the next makes sense:
-
-1. **Connect Google & Slack.** One button, two consent screens. Arcade issues
-   scopes per *tool*, so the eight tools above would normally mean five separate
-   consent screens; the server asks Arcade what each tool needs, unions the
-   scopes per provider, and requests each union once.
-2. **Paste your gateway URL, then Authorize.** This is OAuth 2.1 with PKCE from
-   the MCP client to the gateway. It is what lets the agent call tools without
-   ever seeing your API key.
-3. **Watch.** Open **http://localhost:4111/apply** in a second window and submit
-   an application.
-
-Put the two windows side by side. The form is the public internet; the console is
-the operator's view. Nothing connects them but a mailbox — `POST /apply` sends an
-email and stops. It does not call the agent.
-
-Two things worth trying:
-
-- **Send yourself an ordinary email.** The heartbeat keeps ticking, the check
-  counter climbs, and nothing else happens. Mail that isn't an application costs
-  nothing: no model call, no tokens.
-- **Submit the form with the "form spam" prefill.** Same subject line, same
-  pipeline, and the agent refuses it and takes *zero* actions. The Gmail query is
-  plumbing; the judgment is the agent's.
-
-The two prefill links under the form cycle through 10 genuine applications and 7
-pieces of spam, defined in `src/applications.ts`. They vary by dog, living
-situation and stated availability, so the agent books a different slot each time
-— and one of them says nothing about availability at all, so it has to fall back
-to a default. Two of the spam entries (a wholesale supplier and a pet
-photographer) talk fluently about dogs and rescues on purpose: keyword matching
-would pass them.
-
-## How it's put together
-
-| File | Job |
-| --- | --- |
-| `src/server.ts` | Hono server, the 10-second poll loop, SSE feed to the browser |
-| `src/arcade.ts` | Arcade SDK: pre-auth, the Gmail poll, the demo emails. **No agent logic.** |
-| `src/gateway.ts` | The MCP gateway connection and its token store |
-| `src/oauth.ts` | The gateway's OAuth flow, driven by hand — see below |
-| `src/triage.ts` | The agent. A Mastra `Agent` whose tools all come from MCP. |
-| `src/intake/normalize.ts` | Deterministic, versioned shelter-intake normalization core. |
-| `src/applications.ts` | Sample applications, spam, and the form → email composer |
-| `src/dogs.ts` | The roster, and `ORG` — rename the whole thing from one line |
-| `public/apply.html` | The public adoption form |
-| `public/index.html` | The operator console |
-
-The split between `arcade.ts` and everything else is the point. The Arcade API key
-and user id appear in exactly two files and are used for exactly two things:
-polling Gmail, and running the pre-authorization flows. `triage.ts` imports
-neither. The agent's access comes entirely from the gateway's OAuth grant.
-
-### Why `src/oauth.ts` exists
-
-`@mastra/mcp` can run the gateway's OAuth flow for you, and normally should. Its
-loopback callback, however, reads only `code`, `state` and `error`, then calls
-`finishAuth(code)` — dropping the `iss` parameter from
-[RFC 9207](https://www.rfc-editor.org/rfc/rfc9207.html). The MCP SDK treats a
-missing `iss` as a possible mix-up attack whenever the authorization server
-advertises support for it, which Arcade's correctly does, and throws a
-non-retryable `IssuerMismatchError`.
-
-So we run the same flow ourselves with the SDK's own primitives, on our own
-callback route where we *can* read `iss`, and hand the tokens to Mastra's
-provider. Delete that file once Mastra forwards `iss`.
-
-## Intake smart-layer core
-
-`src/intake/normalize.ts` is a stateless deterministic boundary intended to sit
-above a shelter system of record. Its versioned JSON contracts live in
-`schemas/`; source forms, synthetic inputs, and golden outputs live in
-`test-data/`.
-
-Run the credential-free browser demo:
-
-```bash
-npm run demo:intake
-```
-
-Open **http://localhost:4112/intake**, select a synthetic intake, and compare
-the source JSON with normalized fields, applied rules, and human-review
-warnings. A responsive field table places the exact submitted intake values
-beside normalized values and marks changed, unchanged, missing, and
-review-required outcomes. The standalone demo does not load Arcade, Google,
-Slack, Anthropic, or PetPoint credentials. The same page is also available at
-**http://localhost:4111/intake** when the full starter server is configured.
-Both servers default to `localhost`; use `INTAKE_DEMO_HOST` /
-`INTAKE_DEMO_PORT` for the standalone demo and `HOST` / `PORT` for the full
-starter. Binding externally exposes an unauthenticated prototype and should
-only be done on a trusted network.
-
-```bash
-npm test
-npm run check
-npm run evaluate:intake
-npm run normalize:intake -- test-data/intake-records/stray-intake.json
-cat records.ndjson | npm run normalize:intake -- --ndjson
-```
-
-`npm install` configures the tracked Husky pre-commit hook. Every commit runs
-Biome linting over maintained TypeScript, the TypeScript compiler, and the full
-deterministic test suite. The test runner discovers every repository-wide
-`*.test.ts` and `*.spec.ts`; a layout guard rejects uncovered TypeScript files
-inside `test`, `tests`, or `__tests__` directories. GitHub Actions runs the same
-gate, and `main` requires that check through branch protection. Downloaded
-reference forms are intentionally excluded from linting; their JSON-derived
-behavior is covered by schema and fixture tests.
-
-Browser regressions use Playwright Chromium and are part of `npm test`. Install
-the local browser once with `npx playwright install chromium`; CI installs it
-before running the same quality gate.
-
-Unrecognized or ambiguous values are preserved in `rawRecord` and produce
-review warnings. Because the result carries that unrestricted source record,
-the full internal envelope is sensitive. The CLI emits a raw-free restricted
-projection that also removes original change and issue values; it is not
-deidentified or authorization-free. Versioned
-organization profiles may add explicit aliases and required fields, but cannot
-override the global controlled vocabulary; their ID and revision are recorded
-in result provenance.
-
-## Make it yours
-
-- `src/dogs.ts` — `ORG` renames the console, the form, the agent's persona, the
-  Sheet title and the OAuth consent screen. Changing it means re-running
-  `npm run seed`, since the agent finds the Sheet by title.
-- `src/triage.ts` — the agent's instructions. Note that tool names are *not*
-  hardcoded: Mastra namespaces MCP tools by server, so naming them in the prompt
-  would couple it to that scheme. Describe the goal and let the model match it.
-- `src/arcade.ts` — the Gmail query. `in:inbox` is load-bearing: Gmail search
-  spans drafts, so without it the reply the agent drafts comes back as a fresh
-  application on the next tick and it triages its own output.
-
-## Ideas
-
-The agent currently handles one email at a time and forgets everything. Some
-directions:
-
-- **Duplicate detection.** The same person applies for three dogs in one evening.
-  Read the Sheet before appending.
-- **Reference checks.** A second agent that emails the vet listed on the
-  application and waits for a reply — days later.
-- **Capacity.** Refuse to book a meet-and-greet when no volunteer is free, by
-  actually reading the volunteers' calendars.
-- **A digest.** One Slack message at 6pm instead of one per application.
-- **Escalation.** Some applications shouldn't be auto-processed at all. Which
-  ones, and who decides?
-
-## Starting over
-
-To re-run the whole setup flow from scratch:
-
-```bash
-# stop the server first — a running one holds the tokens in memory
-# and will flush them back to disk
-npm run reset
-```
-
-That removes the only two files the client persists: `.arcade-oauth.json` (the
-gateway's OAuth tokens and registered client id) and `.arcade-gateway` (the
-gateway URL used last run). Everything else is in memory and goes with the
-process. The script then prints what to do on the Arcade side — revoke the
-connections, delete the gateway — since those affect an account, not a
-directory.
-
-Your seeded Sheet survives. You don't need to re-run `npm run seed`.
-
-## Troubleshooting
-
-**The gateway chip stays amber.** Click Authorize. If it fails, the log says why.
-
-**"Poll failed" in the log.** The Gmail search errored — the message includes
-Arcade's response. Usually a missing scope; re-run Connect.
-
-**Nothing happens when I submit the form.** Applications already in the inbox
-when polling starts are recorded but *not* triaged, so one run doesn't fire five
-at once. You'll see `Ignoring N already in the inbox`. Submit again.
-
-**Slack posts fail.** Arcade posts as you. Join the channel.
-
-**The agent sent an email.** It shouldn't — replies to real people are only ever
-drafted. That's in the instructions deliberately; if it broke, that's a bug worth
-reporting.
+This project began from Arcade.dev's Dogathon starter repository. The original
+Arcade, MCP, Gmail, Google Sheets, Calendar, Slack, and adoption-application
+examples remain in the source tree as optional foundation code, but they are
+not part of the ShelterLint demo or its implemented feature claims.
